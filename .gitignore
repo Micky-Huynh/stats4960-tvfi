@@ -1,6 +1,12 @@
 # Local handoffs (not deliverables)
 docs/handoff/
 
+# Course / partner Word docs (keep local; do not publish)
+Updated Project Information.docx
+TVFI Yield Curve Monitoring Project Brief.docx
+Project Progress Update Evaluation Group 5.docx
+~$*.docx
+
 # macOS / editor junk
 .DS_Store
 Thumbs.db
