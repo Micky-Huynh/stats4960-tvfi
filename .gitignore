@@ -1,6 +1,9 @@
 # Local handoffs (not deliverables)
 docs/handoff/
 
+# Local agent scratch (not a deliverable)
+Project Agent/
+
 # TVFI-provided Slope library (local only; do not publish)
 slope_api.py
 
