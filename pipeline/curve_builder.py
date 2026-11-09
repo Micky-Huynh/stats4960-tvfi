@@ -4,7 +4,7 @@
 Reproduces annual forward rates (column J) from:
   - static top-left insurer parameters
   - held liquidity premium (column H) under ``hold_latest_publication``
-  - a risk-free annual curve (fixture from Fiera today; BoC zeros later)
+  - a risk-free annual curve from Fiera fixture (col E) or BoC zero-coupon CSV
 
 Writes a Slope-ready workbook: Sheet1 with Policy Duration 1–100 and Forward Rate.
 
@@ -12,6 +12,7 @@ Usage (from the TVFI project root):
 
     python3 -m pipeline.curve_builder
     python3 -m pipeline.curve_builder --validate
+    python3 -m pipeline.curve_builder --rf boc
     python3 pipeline/curve_builder.py --as-of 2026-10-30
 """
 
@@ -452,6 +453,48 @@ def build_from_fixtures(
         "as_of": prem_as_of,
         "premium_policy": PREMIUM_POLICY,
         "rf_source": "fiera_illiquid_construction_col_E",
+        "rf_as_of": rf_as_of,
+        "params_as_of": params.raw.get("as_of"),
+        "forwards": forwards,
+        "xlsx_path": xlsx_path,
+        "csv_path": csv_path,
+    }
+
+
+def build_from_boc(
+    *,
+    as_of: Optional[str] = None,
+    params_path: Optional[Path] = None,
+    out_dir: Path = CURVES_DIR,
+    n_durations: int = N_DURATIONS,
+    boc_snapshot: Optional[Path] = None,
+    try_download: bool = True,
+) -> dict:
+    """Build column J from BoC zeros (annual effective 1–30) + held H + static params."""
+    from pipeline.boc_intake import load_risk_free_for_builder
+
+    params = load_static_params(params_path)
+    prem_as_of, premium = load_held_liquidity_premium(as_of=as_of)
+    rf_as_of, risk_free, snapshot, snap_path = load_risk_free_for_builder(
+        snapshot_path=boc_snapshot,
+        try_download=try_download,
+    )
+
+    forwards = build_column_j(risk_free, premium, params, n_durations=n_durations)
+    stem = f"illiquid_col_j_boc_rf_{rf_as_of}_h_{prem_as_of}"
+    xlsx_path = out_dir / f"{stem}.xlsx"
+    csv_path = out_dir / f"{stem}.csv"
+    write_slope_xlsx(forwards, xlsx_path, n_durations=n_durations)
+    write_slope_csv(forwards, csv_path, n_durations=n_durations)
+
+    return {
+        "as_of": prem_as_of,
+        "premium_policy": PREMIUM_POLICY,
+        "rf_source": "boc_zero_coupon_csv",
+        "rf_as_of": rf_as_of,
+        "rf_snapshot_path": snap_path,
+        "rf_is_fixture": bool(snapshot.get("is_fixture")),
+        "rf_publish_lag_days": (snapshot.get("gaps") or {}).get("publish_lag_days"),
         "params_as_of": params.raw.get("as_of"),
         "forwards": forwards,
         "xlsx_path": xlsx_path,
@@ -480,7 +523,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument(
         "--as-of",
         default=None,
-        help="Fiera publication date (YYYY-MM-DD). Default: latest extract.",
+        help="Fiera publication date (YYYY-MM-DD) for held col H / Fiera RF. Default: latest extract.",
+    )
+    parser.add_argument(
+        "--rf",
+        choices=("fiera", "boc"),
+        default="fiera",
+        help="Risk-free source: fiera construction col E (default) or BoC zero-coupon CSV snapshot",
+    )
+    parser.add_argument(
+        "--boc-snapshot",
+        type=Path,
+        default=None,
+        help="Optional path to data/risk_free/YYYY-MM-DD.json (implies --rf boc)",
     )
     parser.add_argument(
         "--out-dir",
@@ -501,20 +556,39 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    result = build_from_fixtures(as_of=args.as_of, out_dir=args.out_dir)
+    rf_mode = "boc" if args.boc_snapshot is not None else args.rf
+    if rf_mode == "boc":
+        result = build_from_boc(
+            as_of=args.as_of,
+            out_dir=args.out_dir,
+            boc_snapshot=args.boc_snapshot,
+        )
+    else:
+        result = build_from_fixtures(as_of=args.as_of, out_dir=args.out_dir)
+
     print(f"as_of:           {result['as_of']}")
     print(f"premium_policy:  {result['premium_policy']}")
     print(f"rf_source:       {result['rf_source']}")
+    print(f"rf_as_of:        {result.get('rf_as_of')}")
+    if result.get("rf_snapshot_path") is not None:
+        print(f"rf_snapshot:     {result['rf_snapshot_path']}")
+        print(f"rf_is_fixture:   {result.get('rf_is_fixture')}")
+        print(f"rf_lag_days:     {result.get('rf_publish_lag_days')}")
     print(f"wrote xlsx:      {result['xlsx_path']}")
     print(f"wrote csv:       {result['csv_path']}")
 
-    # Always validate the default latest publication day; use --validate for others.
-    if args.validate or args.as_of is None:
+    # Validate only the Fiera fixture path against extracted col J (BoC RF will not match).
+    if rf_mode == "fiera" and (args.validate or args.as_of is None):
         report = validate_against_fiera(result["forwards"], reference_path=args.reference)
         print(f"validate ref:    {report['reference_path']}")
         print(
             f"max |Δ| bp:      {report['max_abs_error_bp']:.6g} "
             f"(year {report['max_abs_error_year']}, n={report['n_compared']})"
+        )
+    elif args.validate and rf_mode == "boc":
+        print(
+            "validate skipped: --validate compares to Fiera col J; "
+            "use --rf fiera for that check"
         )
     return 0
 

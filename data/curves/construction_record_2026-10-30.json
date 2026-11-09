@@ -1,0 +1,10 @@
+{
+  "as_of": "2026-10-30",
+  "rf_source": "fiera_illiquid_construction_col_E",
+  "rf_as_of": "2026-10-30",
+  "premium_policy": "hold_latest_publication",
+  "premium_as_of": "2026-10-30",
+  "params_as_of": "2026-10-30",
+  "xlsx_path": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/illiquid_col_j_2026-10-30.xlsx",
+  "csv_path": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/illiquid_col_j_2026-10-30.csv"
+}

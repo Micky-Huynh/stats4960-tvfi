@@ -10,6 +10,7 @@ Source: https://www.fieracapital.com/en-ca/institutional-markets/cia-ifrs-17-cur
 data/
   README.md
   curves/                  # Slope workbooks from pipeline.curve_builder (col J)
+  risk_free/               # BoC zero-coupon snapshots (YYYY-MM-DD.json) + fixture sample
   fiera/
     MANIFEST.json          # download inventory
     docs/                  # implementation note PDF
@@ -45,8 +46,18 @@ data/
 ### `curves/`
 
 Slope-ready outputs from `python3 -m pipeline.curve_builder` (see `pipeline/README.md`):
-`illiquid_col_j_<as_of>.xlsx` / `.csv` with Sheet1 `Policy Duration`, `Forward Rate` (1–100).
+`illiquid_col_j_<as_of>.xlsx` / `.csv` (Fiera RF) or `illiquid_col_j_boc_rf_<rf>_h_<h>.*` (BoC RF)
+with Sheet1 `Policy Duration`, `Forward Rate` (1–100).
+
+### `risk_free/`
+
+BoC zero-coupon CSV intake (`python3 -m pipeline.boc_intake`):
+
+- `YYYY-MM-DD.json` — dated snapshot (`rf_asof` = observation date; ~2-week lag)
+- `fixture_boc_zeros_sample.json` — real BoC observation labeled `is_fixture: true` for offline use
+
+See `docs/memos/boc-rf-lag-freshness.md`.
 
 ## Note
 
-These Fiera files are **monthly**. Daily Canadian risk-free sourcing is still a separate intake step; on publication dates you can validate your builder against column J here.
+Fiera files are **monthly**. Daily Canadian RF is the BoC zero CSV under `risk_free/`; on Fiera publication dates validate the builder with `--rf fiera --validate` against column J here.

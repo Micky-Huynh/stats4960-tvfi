@@ -1,7 +1,7 @@
 {
-  "_note": "Built by pipeline/build_monitor_snapshot.py from archived Fiera monthly method workbooks. Pricing basis = prior month column J; current = Canada par; implied = latest column J. Trigger: calibrated primary mean |\u0394| (see docs/memos/trigger-calibration.md).",
+  "_note": "Built by pipeline/build_monitor_snapshot.py --rebuilt. Pricing basis = prior month archived column J; current = Canada par; implied = curve_builder rebuilt column J (fixture RF). Trigger: calibrated primary mean |\u0394| (see docs/memos/trigger-calibration.md).",
   "schema_version": "1.0",
-  "snapshot_id": "Fiera-20261030-01",
+  "snapshot_id": "Fiera-20261030-R01",
   "is_illustrative": false,
   "meta": {
     "observation_date": "2026-10-30",
@@ -9,14 +9,22 @@
     "market_session": "close",
     "pricing_basis_date": "2026-09-29",
     "source": "Fiera CIA IFRS 17 method workbook (Canada par + Illiquid col J)",
-    "source_label": "Fiera monthly",
-    "last_successful_update": "2026-11-09T00:32:46-05:00",
+    "source_label": "Fiera monthly + rebuilt J",
+    "last_successful_update": "2026-11-09T00:48:37-05:00",
     "timezone_label": "ET",
     "data_availability": "CURRENT",
     "currency": "CAD",
     "yield_type": "nominal",
     "premium_policy": "hold_latest_publication",
-    "premium_policy_note": "Between Fiera publication dates, column H is held; daily BoC intake is not wired yet. This snapshot uses consecutive monthly publications."
+    "premium_policy_note": "Column H held under hold_latest_publication; implied J rebuilt from fixture RF (Fiera construction col E). Daily BoC intake is parallel / not required for this snapshot mode.",
+    "curve_mode": "rebuilt",
+    "rf_source": "fiera_illiquid_construction_col_E",
+    "rf_as_of": "2026-10-30",
+    "premium_as_of": "2026-10-30",
+    "params_as_of": "2026-10-30",
+    "construction_record": "data/curves/construction_record_2026-10-30.json",
+    "construction_xlsx": "data/curves/illiquid_col_j_2026-10-30.xlsx",
+    "construction_csv": "data/curves/illiquid_col_j_2026-10-30.csv"
   },
   "maturities": [
     1,
@@ -65,9 +73,9 @@
     "implied": {
       "label": "Updated / Implied Curve",
       "as_of": "2026-10-30",
-      "construction": "Fiera Illiquid_Ref_Curve_Construction column J (annual forward rates at publication)",
-      "construction_note": "Implied curve is Fiera's published annual forward rates for the latest month. Production will rebuild column J daily from a chosen Canada risk-free source + held/inferred liquidity premium.",
-      "series": "illiquid_annual_forward_column_J",
+      "construction": "Rebuilt Illiquid column J via pipeline.curve_builder (rf_source=fiera_illiquid_construction_col_E, premium_policy=hold_latest_publication)",
+      "construction_note": "Implied curve is reconstructed annual forwards (column J) from fixture risk-free spots + held liquidity premium (column H). Pricing basis stays prior Fiera publication column J (2026-09-29). BoC daily RF intake is not required for this mode.",
+      "series": "illiquid_annual_forward_column_J_rebuilt",
       "yields": [
         4.077,
         4.6654,
@@ -180,20 +188,23 @@
   ],
   "data_quality": {
     "reference_basis": "Fiera 2026-10-30 \u00b7 pricing 2026-09-29",
-    "last_pipeline_run": "2026-11-09T00:32:46-05:00",
+    "last_pipeline_run": "2026-11-09T00:48:37-05:00",
     "pipeline_run_simulated": false,
     "fiera_publications_used": 2,
-    "history_publications": 85
+    "history_publications": 85,
+    "curve_mode": "rebuilt"
   },
   "pipeline_runs": [
     {
-      "id": "Fiera-20261030-01",
-      "started_at": "2026-11-09T00:32:46-05:00",
-      "finished_at": "2026-11-09T00:32:46-05:00",
+      "id": "Fiera-20261030-R01",
+      "started_at": "2026-11-09T00:48:37-05:00",
+      "finished_at": "2026-11-09T00:48:37-05:00",
       "status": "ok",
       "steps": [
         "load_fiera_history",
-        "select_latest_pair",
+        "select_pricing_baseline_prior_publication_J",
+        "rebuild_column_j_fixture_rf",
+        "write_construction_record",
         "compute_curve_metrics",
         "evaluate_calibrated_triggers",
         "write_monitor_snapshot"
@@ -201,7 +212,7 @@
     }
   ],
   "notes": {
-    "chart_reading": "Pricing basis is Fiera column J as of 2026-09-29. Current basis is Canada par as of 2026-10-30. Implied is Fiera column J as of 2026-10-30. Yields are percent. Deltas are implied \u2212 pricing.",
+    "chart_reading": "Pricing basis is Fiera column J as of 2026-09-29. Current basis is Canada par as of 2026-10-30. Implied is rebuilt column J as of 2026-10-30 (rf_source=fiera_illiquid_construction_col_E). Yields are percent. Deltas are implied \u2212 pricing.",
     "sam_feedback": "Trigger is curve-only (no Slope) with one primary measure: mean |\u0394| across display maturities. A breach starts a Slope profitability test (VoNB / Net CSM / CaPM). Maturity/twist are diagnostics only."
   },
   "metrics_computed": {
