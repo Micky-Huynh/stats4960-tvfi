@@ -9,6 +9,8 @@ Source: https://www.fieracapital.com/en-ca/institutional-markets/cia-ifrs-17-cur
 ```
 data/
   README.md
+  decisions/               # daily trigger decision logs (YYYY-MM-DD.json)
+  monitor/                 # monitor_snapshot.json for the dashboard
   curves/                  # Slope workbooks from pipeline.curve_builder (col J)
   risk_free/               # BoC zero-coupon snapshots (YYYY-MM-DD.json) + fixture sample
   fiera/
@@ -42,6 +44,18 @@ data/
 - `liquidity_premium_summary.csv` — compact monthly summary for “hold vs update” analysis
 - `canada_par_by_month.csv` — Canada par rates from each publication
 - `static_parameters_by_month.csv` — parameter drift check across publications
+
+### `decisions/`
+
+One JSON per observation day from `python3 -m pipeline.build_monitor_snapshot`:
+measure, threshold/value bp, overall_status, triggers, and inputs
+(`rf_source`, `premium_policy`, `construction_record`). Pointer also lives on
+`monitor_snapshot.json` → `decision.decision_path`.
+
+### `monitor/`
+
+`monitor_snapshot.json` (schema 1.0) synced to the dashboard folder. Optional
+`decision` / `profitability` hooks are ignored by the current UI until wired.
 
 ### `curves/`
 

@@ -315,6 +315,7 @@ def path_hint(snapshot: Mapping[str, object]) -> str:
 
 
 def find_latest_snapshot(out_dir: Path = RISK_FREE_DIR) -> Optional[Path]:
+    """Return newest dated ``YYYY-MM-DD.json`` under ``out_dir`` (excludes fixture sample)."""
     if not out_dir.is_dir():
         return None
     dated = sorted(
@@ -322,6 +323,44 @@ def find_latest_snapshot(out_dir: Path = RISK_FREE_DIR) -> Optional[Path]:
         key=lambda p: p.stem,
     )
     return dated[-1] if dated else None
+
+
+def find_preferred_boc_snapshot(out_dir: Path = RISK_FREE_DIR) -> Optional[Path]:
+    """Prefer latest dated live BoC JSON; fall back to fixture sample only if needed.
+
+    Skips ``fixture_boc_zeros_sample.json`` unless it is the only available option.
+    Dated files with ``is_fixture: true`` are skipped when a non-fixture dated
+    snapshot exists.
+    """
+    if not out_dir.is_dir():
+        return None
+
+    dated = sorted(
+        (p for p in out_dir.glob("????-??-??.json") if p.is_file()),
+        key=lambda p: p.stem,
+        reverse=True,
+    )
+    live: List[Path] = []
+    fixture_dated: List[Path] = []
+    for path in dated:
+        try:
+            snap = load_snapshot(path)
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+            continue
+        if snap.get("is_fixture"):
+            fixture_dated.append(path)
+        else:
+            live.append(path)
+
+    if live:
+        return live[0]
+    if fixture_dated:
+        return fixture_dated[0]
+
+    fixture = out_dir / "fixture_boc_zeros_sample.json"
+    if fixture.is_file():
+        return fixture
+    return None
 
 
 def load_risk_free_for_builder(

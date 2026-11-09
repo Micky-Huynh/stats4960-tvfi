@@ -5,11 +5,16 @@ Usage (from the TVFI project root):
 
     python3 -m pipeline.build_monitor_snapshot
     python3 -m pipeline.build_monitor_snapshot --rebuilt
+    python3 -m pipeline.build_monitor_snapshot --rebuilt --rf fiera
     python3 pipeline/build_monitor_snapshot.py
 
 Writes:
+  data/decisions/YYYY-MM-DD.json
   data/monitor/monitor_snapshot.json
   Dashboard UI/Group5_Monitoring_Dashboard/monitor_snapshot.json
+
+Snapshot also carries optional schema 1.0 keys `decision` and `profitability`
+(dashboard-safe; ignored by validate/derive until the UI uses them).
 
 Then serve the dashboard:
 
@@ -37,14 +42,30 @@ def main() -> int:
         "--rebuilt",
         action="store_true",
         help=(
-            "Implied curve from curve_builder rebuilt column J (fixture RF); "
+            "Implied curve from curve_builder rebuilt column J "
+            "(BoC RF when a data/risk_free snapshot exists; else Fiera fixture); "
             "pricing basis stays prior publication J"
         ),
     )
     parser.add_argument(
         "--as-of",
         default=None,
-        help="With --rebuilt: Fiera publication / fixture RF day (default: latest)",
+        help="With --rebuilt: Fiera publication day for held col H (default: latest)",
+    )
+    parser.add_argument(
+        "--rf",
+        choices=("auto", "boc", "fiera"),
+        default="auto",
+        help=(
+            "With --rebuilt: RF source. auto (default) prefers latest BoC "
+            "data/risk_free/*.json; boc forces BoC; fiera forces fixture col E"
+        ),
+    )
+    parser.add_argument(
+        "--boc-snapshot",
+        type=Path,
+        default=None,
+        help="Optional path to data/risk_free/YYYY-MM-DD.json (implies BoC RF)",
     )
     parser.add_argument(
         "--no-thresholds",
@@ -63,6 +84,8 @@ def main() -> int:
         mode=mode,
         use_provisional_thresholds=not args.no_thresholds,
         rebuilt_as_of=args.as_of,
+        rf=args.rf,
+        boc_snapshot=args.boc_snapshot,
     )
     paths = write_snapshot(snapshot)
 
@@ -73,6 +96,9 @@ def main() -> int:
     print(f"observation: {snapshot['meta']['observation_date']}")
     if args.rebuilt:
         print(f"rf_source:   {snapshot['meta'].get('rf_source')}")
+        print(f"rf_as_of:    {snapshot['meta'].get('rf_as_of')}")
+        if snapshot["meta"].get("lag_note"):
+            print(f"lag_note:    {snapshot['meta'].get('lag_note')}")
         print(f"construction:{snapshot['meta'].get('construction_record')}")
     for name, path in paths.items():
         print(f"wrote [{name}]: {path}")

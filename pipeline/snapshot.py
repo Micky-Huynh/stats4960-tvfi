@@ -18,8 +18,11 @@ ROOT = Path(__file__).resolve().parents[1]
 DASHBOARD_DIR = ROOT / "Dashboard UI" / "Group5_Monitoring_Dashboard"
 MONITOR_DIR = ROOT / "data" / "monitor"
 CURVES_DIR = ROOT / "data" / "curves"
+DECISIONS_DIR = ROOT / "data" / "decisions"
+EXPORTS_DIR = ROOT / "exports"
 
 SnapshotMode = Literal["fixture_archive", "rebuilt"]
+PRIMARY_MEASURE = "abs_mean_change_bp"
 
 
 def _history_rows(
@@ -60,10 +63,11 @@ def _write_construction_record(built: Dict[str, Any]) -> Path:
     record = {
         "as_of": as_of,
         "rf_source": built["rf_source"],
-        "rf_as_of": as_of,
+        "rf_as_of": built.get("rf_as_of", as_of),
         "premium_policy": built["premium_policy"],
         "premium_as_of": as_of,
         "params_as_of": built.get("params_as_of"),
+        "lag_note": built.get("lag_note"),
         "xlsx_path": str(built["xlsx_path"]),
         "csv_path": str(built["csv_path"]),
     }
@@ -71,11 +75,207 @@ def _write_construction_record(built: Dict[str, Any]) -> Path:
     return path
 
 
+RfMode = Literal["auto", "boc", "fiera"]
+
+
+def _select_rebuilt_build(
+    *,
+    rebuilt_as_of: Optional[str],
+    rf: RfMode,
+    boc_snapshot: Optional[Path],
+) -> tuple[Dict[str, Any], Optional[str]]:
+    """Build rebuilt column J, preferring BoC RF when available.
+
+    Returns ``(built, rf_fallback_note)``. ``rf_fallback_note`` is set when
+    ``rf="auto"`` falls back to Fiera fixture RF because no BoC snapshot exists.
+    """
+    from . import boc_intake
+
+    force_boc = rf == "boc" or boc_snapshot is not None
+    force_fiera = rf == "fiera"
+
+    if force_fiera:
+        built = curve_builder.build_from_fixtures(as_of=rebuilt_as_of)
+        return built, None
+
+    snap_path = boc_snapshot
+    if snap_path is None and (force_boc or rf == "auto"):
+        snap_path = boc_intake.find_preferred_boc_snapshot()
+
+    if snap_path is not None:
+        built = curve_builder.build_from_boc(
+            as_of=rebuilt_as_of,
+            boc_snapshot=snap_path,
+            try_download=False,
+        )
+        return built, None
+
+    if force_boc:
+        # Explicit --rf boc with nothing on disk: allow download / fixture path.
+        built = curve_builder.build_from_boc(
+            as_of=rebuilt_as_of,
+            boc_snapshot=None,
+            try_download=True,
+        )
+        return built, None
+
+    # auto: no BoC snapshot → Fiera fixture RF
+    built = curve_builder.build_from_fixtures(as_of=rebuilt_as_of)
+    note = (
+        "No BoC snapshot under data/risk_free/; fell back to Fiera construction "
+        "col E fixture RF. Refresh with: python3 -m pipeline.boc_intake"
+    )
+    return built, note
+
+
+def _primary_trigger(snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the primary trigger rule dict from a snapshot."""
+    for rule in snapshot.get("triggers") or []:
+        if rule.get("role") == "primary" or rule.get("id") == trigger.PRIMARY_RULE_ID:
+            return rule
+    return {}
+
+
+def _decision_path_for(as_of: str) -> Path:
+    return DECISIONS_DIR / f"{as_of}.json"
+
+
+def build_decision_log(snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    """Build a daily decision log payload from a monitor snapshot."""
+    meta = snapshot.get("meta") or {}
+    assessment = snapshot.get("assessment") or {}
+    metrics_computed = snapshot.get("metrics_computed") or {}
+    curves = snapshot.get("curves") or {}
+    primary = _primary_trigger(snapshot)
+    as_of = str(meta.get("observation_date") or "unknown")
+    now = datetime.now(ET)
+
+    measure = primary.get("metric") or PRIMARY_MEASURE
+    threshold_bp = primary.get("threshold_bp")
+    value_bp = primary.get("value_bp")
+    if value_bp is None:
+        value_bp = metrics_computed.get(measure)
+    overall_status = assessment.get("overall_status", "UNASSESSED")
+
+    return {
+        "decision_id": snapshot.get("snapshot_id"),
+        "as_of": as_of,
+        "pricing_basis_date": meta.get("pricing_basis_date"),
+        "measure": measure,
+        "threshold_bp": threshold_bp,
+        "value_bp": value_bp,
+        "values": {
+            "abs_mean_change_bp": metrics_computed.get("abs_mean_change_bp"),
+            "max_abs_change_bp": metrics_computed.get("max_abs_change_bp"),
+            "abs_twist_2s10s_bp": metrics_computed.get("abs_twist_2s10s_bp"),
+        },
+        "metrics": {
+            "abs_mean_change_bp": metrics_computed.get("abs_mean_change_bp"),
+            "max_abs_change_bp": metrics_computed.get("max_abs_change_bp"),
+            "abs_twist_2s10s_bp": metrics_computed.get("abs_twist_2s10s_bp"),
+            "thresholds_calibrated": metrics_computed.get("thresholds_calibrated"),
+            "thresholds_provisional": metrics_computed.get("thresholds_provisional"),
+        },
+        "triggers": snapshot.get("triggers") or [],
+        "assessment": assessment,
+        "overall_status": overall_status,
+        "inputs": {
+            "rf_source": meta.get("rf_source"),
+            "premium_policy": meta.get("premium_policy"),
+            "construction_record": meta.get("construction_record"),
+            "pricing_series": (curves.get("pricing_basis") or {}).get("series"),
+            "implied_series": (curves.get("implied") or {}).get("series"),
+            "current_series": (curves.get("current_basis") or {}).get("series"),
+            "curve_mode": meta.get("curve_mode"),
+            "source": meta.get("source"),
+        },
+        "notes": (
+            "Generated with pipeline.build_monitor_snapshot; "
+            "primary measure is calibrated mean |Δ| (curve-only)."
+        ),
+        "written_at": now.isoformat(timespec="seconds"),
+    }
+
+
+def write_decision_log(snapshot: Dict[str, Any]) -> Path:
+    """Write/update data/decisions/YYYY-MM-DD.json for the snapshot as-of date."""
+    meta = snapshot.get("meta") or {}
+    as_of = str(meta.get("observation_date") or "unknown")
+    DECISIONS_DIR.mkdir(parents=True, exist_ok=True)
+    path = _decision_path_for(as_of)
+    payload = build_decision_log(snapshot)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def profitability_section() -> Dict[str, Any]:
+    """Optional profitability hook for the snapshot.
+
+    When ``exports/profitability_summary_*.xlsx`` exists (from
+    ``analyse_results.py`` after Slope), status becomes ``available`` and
+    ``summary`` carries the export path. Until ``slope_api.py`` can run, this
+    stays ``not_run``.
+    """
+    exports = sorted(EXPORTS_DIR.glob("profitability_summary_*.xlsx")) if EXPORTS_DIR.is_dir() else []
+    if not exports:
+        return {
+            "status": "not_run",
+            "note": (
+                "Blocked on slope_api.py — no exports/profitability_summary_*.xlsx yet. "
+                "After analyse_results.py writes an export, re-run "
+                "pipeline.build_monitor_snapshot to attach it here."
+            ),
+            "summary": None,
+        }
+
+    latest = exports[-1]
+    return {
+        "status": "available",
+        "note": (
+            "Found profitability export. Full VoNB / Net CSM / CaPM summary "
+            "attach can parse this workbook once Slope CSVs are live."
+        ),
+        "summary": {
+            "export_path": str(latest.relative_to(ROOT)),
+            "export_name": latest.name,
+            "metrics": None,  # filled when workbook parse is wired
+        },
+    }
+
+
+def enrich_snapshot(snapshot: Dict[str, Any], decision_path: Path) -> Dict[str, Any]:
+    """Attach optional decision + profitability sections (schema 1.0-safe)."""
+    primary = _primary_trigger(snapshot)
+    metrics_computed = snapshot.get("metrics_computed") or {}
+    assessment = snapshot.get("assessment") or {}
+    measure = primary.get("metric") or PRIMARY_MEASURE
+    value_bp = primary.get("value_bp")
+    if value_bp is None:
+        value_bp = metrics_computed.get(measure)
+
+    try:
+        rel_decision = str(decision_path.relative_to(ROOT))
+    except ValueError:
+        rel_decision = str(decision_path)
+
+    snapshot["decision"] = {
+        "measure": measure,
+        "threshold_bp": primary.get("threshold_bp"),
+        "value_bp": value_bp,
+        "status": assessment.get("overall_status", "UNASSESSED"),
+        "decision_path": rel_decision,
+    }
+    snapshot["profitability"] = profitability_section()
+    return snapshot
+
+
 def build_snapshot(
     *,
     mode: SnapshotMode = "fixture_archive",
     use_provisional_thresholds: bool = True,
     rebuilt_as_of: Optional[str] = None,
+    rf: RfMode = "auto",
+    boc_snapshot: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """Build a schema 1.0 monitor snapshot.
 
@@ -84,14 +284,15 @@ def build_snapshot(
     fixture_archive
         Implied = archived Fiera publication column J (consecutive monthly pair).
     rebuilt
-        Implied = ``curve_builder`` column J (fixture RF + hold_latest H today).
-        Pricing basis remains the **prior publication** column J from history —
-        the trigger still measures move vs the last locked pricing baseline, not
-        vs a rebuilt prior. Daily BoC RF can replace the fixture later without
-        changing this seam.
+        Implied = ``curve_builder`` column J (BoC RF when a snapshot exists;
+        otherwise Fiera fixture RF) + hold_latest H. Pricing basis remains the
+        **prior publication** column J from history — the trigger still measures
+        move vs the last locked pricing baseline, not vs a rebuilt prior.
     """
     if mode not in ("fixture_archive", "rebuilt"):
         raise ValueError(f"Unknown snapshot mode: {mode!r}")
+    if rf not in ("auto", "boc", "fiera"):
+        raise ValueError(f"Unknown rf mode: {rf!r}")
 
     forwards = fh.load_forward_curves()
     canada = fh.load_canada_par_curves()
@@ -112,16 +313,22 @@ def build_snapshot(
         "select_latest_pair",
         "compute_curve_metrics",
         "evaluate_calibrated_triggers",
+        "write_decision_log",
         "write_monitor_snapshot",
     ]
 
     if mode == "rebuilt":
-        built = curve_builder.build_from_fixtures(as_of=rebuilt_as_of)
+        built, rf_fallback_note = _select_rebuilt_build(
+            rebuilt_as_of=rebuilt_as_of,
+            rf=rf,
+            boc_snapshot=boc_snapshot,
+        )
         record_path = _write_construction_record(built)
         implied_fwd = built["forwards"]
         implied_pct = fh.to_percent(fh.pick_at_maturities(implied_fwd, maturities))
-        # Observation follows the RF/premium construction day (fixture = publication).
+        # Observation follows the premium construction day (held H publication).
         current_date = str(built["as_of"])
+        rf_as_of = str(built.get("rf_as_of") or current_date)
         if current_date not in canada:
             # Fall back to latest Canada par if a non-publication RF day is used later.
             canada_dates = fh.sorted_as_of(canada)
@@ -135,21 +342,46 @@ def build_snapshot(
             current_pct = fh.to_percent(fh.pick_at_maturities(canada_curr, maturities))
             canada_as_of = current_date
 
+        using_boc = str(built["rf_source"]).startswith("boc_")
         implied_construction = (
             "Rebuilt Illiquid column J via pipeline.curve_builder "
             f"(rf_source={built['rf_source']}, premium_policy={built['premium_policy']})"
         )
-        implied_construction_note = (
-            "Implied curve is reconstructed annual forwards (column J) from fixture "
-            "risk-free spots + held liquidity premium (column H). Pricing basis stays "
-            f"prior Fiera publication column J ({pricing_date}). BoC daily RF intake "
-            "is not required for this mode."
-        )
+        if using_boc:
+            implied_construction_note = (
+                "Implied curve is reconstructed annual forwards (column J) from BoC "
+                f"zero-coupon RF (rf_as_of={rf_as_of}) + held liquidity premium "
+                f"(column H as of {current_date}). Pricing basis stays prior Fiera "
+                f"publication column J ({pricing_date})."
+            )
+            rebuild_step = "rebuild_column_j_boc_rf"
+            rf_label = f"BoC RF as of {rf_as_of}"
+            premium_note = (
+                "Column H held under hold_latest_publication; implied J rebuilt from "
+                f"BoC zero-coupon CSV RF (rf_as_of={rf_as_of})."
+            )
+        else:
+            implied_construction_note = (
+                "Implied curve is reconstructed annual forwards (column J) from fixture "
+                "risk-free spots + held liquidity premium (column H). Pricing basis stays "
+                f"prior Fiera publication column J ({pricing_date})."
+            )
+            if rf_fallback_note:
+                implied_construction_note += f" {rf_fallback_note}"
+            rebuild_step = "rebuild_column_j_fixture_rf"
+            rf_label = "fixture RF (Fiera construction col E)"
+            premium_note = (
+                "Column H held under hold_latest_publication; implied J rebuilt from "
+                "fixture RF (Fiera construction col E)."
+            )
+            if rf_fallback_note:
+                premium_note = f"{premium_note} {rf_fallback_note}"
+
         implied_series = "illiquid_annual_forward_column_J_rebuilt"
         construction_meta = {
             "curve_mode": "rebuilt",
             "rf_source": built["rf_source"],
-            "rf_as_of": current_date,
+            "rf_as_of": rf_as_of,
             "premium_policy": built["premium_policy"],
             "premium_as_of": current_date,
             "params_as_of": built.get("params_as_of"),
@@ -157,31 +389,39 @@ def build_snapshot(
             "construction_xlsx": str(Path(built["xlsx_path"]).relative_to(ROOT)),
             "construction_csv": str(Path(built["csv_path"]).relative_to(ROOT)),
         }
+        lag_note = built.get("lag_note")
+        if lag_note:
+            construction_meta["lag_note"] = lag_note
+        elif using_boc:
+            from .boc_intake import LAG_NOTE
+
+            construction_meta["lag_note"] = LAG_NOTE
+        if rf_fallback_note:
+            construction_meta["rf_fallback_note"] = rf_fallback_note
+        if built.get("rf_publish_lag_days") is not None:
+            construction_meta["rf_publish_lag_days"] = built["rf_publish_lag_days"]
+
         pipeline_steps = [
             "load_fiera_history",
             "select_pricing_baseline_prior_publication_J",
-            "rebuild_column_j_fixture_rf",
+            rebuild_step,
             "write_construction_record",
             "compute_curve_metrics",
             "evaluate_calibrated_triggers",
+            "write_decision_log",
             "write_monitor_snapshot",
         ]
         note = (
             "Built by pipeline/build_monitor_snapshot.py --rebuilt. "
             "Pricing basis = prior month archived column J; current = Canada par; "
-            "implied = curve_builder rebuilt column J (fixture RF). "
+            f"implied = curve_builder rebuilt column J ({rf_label}). "
             "Trigger: calibrated primary mean |Δ| (see docs/memos/trigger-calibration.md)."
         )
         chart_implied = (
             f"Implied is rebuilt column J as of {current_date} "
-            f"(rf_source={built['rf_source']})."
+            f"(rf_source={built['rf_source']}, rf_as_of={rf_as_of})."
         )
         source_label = "Fiera monthly + rebuilt J"
-        premium_note = (
-            "Column H held under hold_latest_publication; implied J rebuilt from "
-            "fixture RF (Fiera construction col E). Daily BoC intake is parallel / "
-            "not required for this snapshot mode."
-        )
         snap_suffix = "R01"
     else:
         implied_pct = fh.to_percent(fh.pick_at_maturities(current_fwd, maturities))
@@ -325,13 +565,20 @@ def build_snapshot(
 
 
 def write_snapshot(snapshot: Dict[str, Any]) -> Dict[str, Path]:
+    """Write decision log, enrich optional sections, then sync snapshot JSON."""
+    decision_path = write_decision_log(snapshot)
+    enrich_snapshot(snapshot, decision_path)
+
     MONITOR_DIR.mkdir(parents=True, exist_ok=True)
     DASHBOARD_DIR.mkdir(parents=True, exist_ok=True)
     text = json.dumps(snapshot, indent=2) + "\n"
     paths = {
+        "decision": decision_path,
         "monitor": MONITOR_DIR / "monitor_snapshot.json",
         "dashboard": DASHBOARD_DIR / "monitor_snapshot.json",
     }
-    for path in paths.values():
+    for key, path in paths.items():
+        if key == "decision":
+            continue  # already written
         path.write_text(text, encoding="utf-8")
     return paths

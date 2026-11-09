@@ -490,11 +490,12 @@ def build_from_boc(
     return {
         "as_of": prem_as_of,
         "premium_policy": PREMIUM_POLICY,
-        "rf_source": "boc_zero_coupon_csv",
+        "rf_source": str(snapshot.get("rf_source") or "boc_zero_coupon_csv"),
         "rf_as_of": rf_as_of,
         "rf_snapshot_path": snap_path,
         "rf_is_fixture": bool(snapshot.get("is_fixture")),
         "rf_publish_lag_days": (snapshot.get("gaps") or {}).get("publish_lag_days"),
+        "lag_note": snapshot.get("lag_note"),
         "params_as_of": params.raw.get("as_of"),
         "forwards": forwards,
         "xlsx_path": xlsx_path,

@@ -20,7 +20,8 @@
 - Fiera history → curve metrics → trigger → `monitor_snapshot.json`
 - Writes canonical snapshot to `data/monitor/` and copies into the dashboard folder
 - **Column J builder** (`pipeline/curve_builder.py`): `--rf fiera|boc`; Fiera fixture validates vs published J (~0 bp error). Outputs under `data/curves/`
-- **Rebuilt snapshot mode:** `python3 -m pipeline.build_monitor_snapshot --rebuilt` → pricing = prior publication J; implied = rebuilt J. Latest: `Fiera-20261030-R01`, **`NO_TRIGGER`**, mean |Δ| ≈ **15.5 bp**
+- **Rebuilt snapshot (Wave 4):** `python3 -m pipeline.build_monitor_snapshot --rebuilt` **auto-prefers BoC RF** when `data/risk_free/` has a snapshot (`--rf auto|boc|fiera`). Latest: `Fiera-20261030-R01`, **`NO_TRIGGER`**, `rf_source=boc_zero_coupon_csv`, mean |Δ| ≈ **16.9 bp**
+- **Decision log:** each build writes `data/decisions/YYYY-MM-DD.json`; snapshot carries `decision` + `profitability` hooks (`profitability.status=not_run` until Slope exports exist)
 - **Calibrated trigger** (`pipeline/trigger.py`): primary rule mean |Δ| ≥ **35 bp** (~2 fires/year). Back-test: `python3 -m pipeline.backtest_trigger`
 
 ### Dashboard
@@ -31,6 +32,10 @@
 ### Checkpoint starters
 - `run_curves.py`: **`GROUP = 5`**, path → root `sample_curve.xlsx`
 - `analyse_results.py`: **self-contained** VoNB ($) / VoNB % / Net CSM % / CaPM (pasted helpers; no `pipeline/` import). Prints TOTAL + by plan code; writes `exports/profitability_summary_*.xlsx` when Slope CSVs exist. Still needs TVFI `slope_api.py` to run live.
+
+### Report draft (Wave 4)
+- `docs/report/TVFI_Group5_Report_Draft.md` — exec summary, ops process, trigger/col H/RF decisions, profitability formulas (numeric cells pending Slope)
+- `docs/report/presentation_outline.md` — ~8-slide outline
 
 ### Decisions documented (memos)
 | Memo | Decision |
@@ -68,16 +73,17 @@ Team / industry partner should explicitly review and sign off on:
 7. **Profitability paste** — Confirm VoNB / Net CSM / CaPM transcription in `analyse_results.py` (esp. PA1 CaPM uses `L/12` per-cell) against first real Slope exports.  
    → `docs/memos/profitability-formula-map.md`
 
+8. **Report draft** — Trim/fill before Word export (≤10 pages); numeric profitability section waits on Slope.  
+   → `docs/report/TVFI_Group5_Report_Draft.md`
+
 ---
 
 ## What’s next
 
-### Wave 4 (remaining build / deliverables)
-1. **Default rebuilt snapshot to BoC RF** when a fresh `data/risk_free/` snapshot exists (today `--rebuilt` still defaults to Fiera col E; BoC is `--rf boc` on the builder).
-2. **Slope checkpoint** — Obtain `slope_api.py` from TVFI; dry-run `run_curves.py` / `analyse_results.py`; reconcile CSV keys vs formula map; submit baseline + implied workbooks.
-3. **Richer snapshot** — Include decision log + profitability summary after Slope has run.
-4. **Written report** — Trigger memo, profitability comparison (baseline vs implied), operational process doc (≤10 pages body).
-5. **Final presentation** — Recommendation to TVFI.
+### Wave 5 (blocked / finalize)
+1. **Slope checkpoint** — Obtain `slope_api.py` from TVFI; dry-run `run_curves.py` / `analyse_results.py`; reconcile CSV keys vs formula map; submit baseline + implied workbooks.
+2. **Fill report §5** — Baseline vs implied VoNB / Net CSM / CaPM once Slope exports exist; attach profitability into snapshot (`profitability.status=available`).
+3. **Word report + presentation** — Export draft to Times New Roman 12pt / 1" margins; finalize slides from `docs/report/presentation_outline.md`.
 
 ### Blocked on TVFI
 - **`slope_api.py` / dummy Slope** — Required for dry runs and real profitability numbers.
@@ -93,7 +99,8 @@ python3 -m pipeline.boc_intake
 python3 -m pipeline.curve_builder --rf fiera --validate
 python3 -m pipeline.curve_builder --rf boc
 python3 -m pipeline.backtest_trigger
-python3 -m pipeline.build_monitor_snapshot --rebuilt
+python3 -m pipeline.build_monitor_snapshot --rebuilt          # auto-prefers BoC RF
+python3 -m pipeline.build_monitor_snapshot --rebuilt --rf fiera  # force fixture RF
 cd "Dashboard UI/Group5_Monitoring_Dashboard" && python3 -m http.server 8000
 # open http://127.0.0.1:8000/ in Brave
 ```
@@ -109,6 +116,8 @@ cd "Dashboard UI/Group5_Monitoring_Dashboard" && python3 -m http.server 8000
 | Col H / RF / trigger memos | Done — **needs review** |
 | Col-J builder (fixture RF) | Done |
 | BoC daily intake | Done (live download verified) |
-| Snapshot driven by rebuilt J | Done (`--rebuilt`; RF still Fiera by default) |
+| Snapshot driven by rebuilt J | Done (`--rebuilt` **defaults to BoC RF**) |
+| Decision log + profitability hooks | Done (`profitability=not_run` until Slope) |
 | Profitability in `analyse_results.py` | Done (paste) — **blocked** on `slope_api.py` for live run |
-| Report / presentation | Not started |
+| Report / presentation draft | Done — finalize after Slope numbers |
+| Slope dry run | **Blocked** on `slope_api.py` |

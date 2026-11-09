@@ -1,5 +1,5 @@
 {
-  "_note": "Built by pipeline/build_monitor_snapshot.py --rebuilt. Pricing basis = prior month archived column J; current = Canada par; implied = curve_builder rebuilt column J (fixture RF). Trigger: calibrated primary mean |\u0394| (see docs/memos/trigger-calibration.md).",
+  "_note": "Built by pipeline/build_monitor_snapshot.py --rebuilt. Pricing basis = prior month archived column J; current = Canada par; implied = curve_builder rebuilt column J (BoC RF as of 2026-10-21). Trigger: calibrated primary mean |\u0394| (see docs/memos/trigger-calibration.md).",
   "schema_version": "1.0",
   "snapshot_id": "Fiera-20261030-R01",
   "is_illustrative": false,
@@ -10,21 +10,23 @@
     "pricing_basis_date": "2026-09-29",
     "source": "Fiera CIA IFRS 17 method workbook (Canada par + Illiquid col J)",
     "source_label": "Fiera monthly + rebuilt J",
-    "last_successful_update": "2026-11-09T00:48:37-05:00",
+    "last_successful_update": "2026-11-09T00:59:27-05:00",
     "timezone_label": "ET",
     "data_availability": "CURRENT",
     "currency": "CAD",
     "yield_type": "nominal",
     "premium_policy": "hold_latest_publication",
-    "premium_policy_note": "Column H held under hold_latest_publication; implied J rebuilt from fixture RF (Fiera construction col E). Daily BoC intake is parallel / not required for this snapshot mode.",
+    "premium_policy_note": "Column H held under hold_latest_publication; implied J rebuilt from BoC zero-coupon CSV RF (rf_as_of=2026-10-21).",
     "curve_mode": "rebuilt",
-    "rf_source": "fiera_illiquid_construction_col_E",
-    "rf_as_of": "2026-10-30",
+    "rf_source": "boc_zero_coupon_csv",
+    "rf_as_of": "2026-10-21",
     "premium_as_of": "2026-10-30",
     "params_as_of": "2026-10-30",
     "construction_record": "data/curves/construction_record_2026-10-30.json",
-    "construction_xlsx": "data/curves/illiquid_col_j_2026-10-30.xlsx",
-    "construction_csv": "data/curves/illiquid_col_j_2026-10-30.csv"
+    "construction_xlsx": "data/curves/illiquid_col_j_boc_rf_2026-10-21_h_2026-10-30.xlsx",
+    "construction_csv": "data/curves/illiquid_col_j_boc_rf_2026-10-21_h_2026-10-30.csv",
+    "lag_note": "BoC zero-coupon CSV typically refreshes Thursday ~16:30 ET with ~2-week publication lag; hold last published curve as rf_asof.",
+    "rf_publish_lag_days": 19
   },
   "maturities": [
     1,
@@ -73,19 +75,19 @@
     "implied": {
       "label": "Updated / Implied Curve",
       "as_of": "2026-10-30",
-      "construction": "Rebuilt Illiquid column J via pipeline.curve_builder (rf_source=fiera_illiquid_construction_col_E, premium_policy=hold_latest_publication)",
-      "construction_note": "Implied curve is reconstructed annual forwards (column J) from fixture risk-free spots + held liquidity premium (column H). Pricing basis stays prior Fiera publication column J (2026-09-29). BoC daily RF intake is not required for this mode.",
+      "construction": "Rebuilt Illiquid column J via pipeline.curve_builder (rf_source=boc_zero_coupon_csv, premium_policy=hold_latest_publication)",
+      "construction_note": "Implied curve is reconstructed annual forwards (column J) from BoC zero-coupon RF (rf_as_of=2026-10-21) + held liquidity premium (column H as of 2026-10-30). Pricing basis stays prior Fiera publication column J (2026-09-29).",
       "series": "illiquid_annual_forward_column_J_rebuilt",
       "yields": [
-        4.077,
-        4.6654,
-        4.8957,
-        5.0134,
-        5.581,
-        6.0335,
-        6.3123,
-        6.2245,
-        5.6558
+        4.087,
+        4.8876,
+        5.03,
+        5.0629,
+        5.7535,
+        6.2768,
+        6.1238,
+        6.0733,
+        6.0074
       ]
     }
   },
@@ -101,7 +103,7 @@
       "label": "Parallel movement (primary)",
       "metric": "abs_mean_change_bp",
       "threshold_bp": 35.0,
-      "value_bp": 15.54,
+      "value_bp": 16.92,
       "status": "PASS",
       "role": "primary"
     },
@@ -110,7 +112,7 @@
       "label": "Maturity-level movement (diagnostic)",
       "metric": "max_abs_change_bp",
       "threshold_bp": 75.0,
-      "value_bp": 28.48,
+      "value_bp": 31.9,
       "status": "PASS",
       "role": "diagnostic"
     },
@@ -119,7 +121,7 @@
       "label": "Curve shape / twist (diagnostic)",
       "metric": "abs_twist_2s10s_bp",
       "threshold_bp": 40.0,
-      "value_bp": 0.15,
+      "value_bp": 2.26,
       "status": "PASS",
       "role": "diagnostic"
     }
@@ -188,7 +190,7 @@
   ],
   "data_quality": {
     "reference_basis": "Fiera 2026-10-30 \u00b7 pricing 2026-09-29",
-    "last_pipeline_run": "2026-11-09T00:48:37-05:00",
+    "last_pipeline_run": "2026-11-09T00:59:27-05:00",
     "pipeline_run_simulated": false,
     "fiera_publications_used": 2,
     "history_publications": 85,
@@ -197,30 +199,43 @@
   "pipeline_runs": [
     {
       "id": "Fiera-20261030-R01",
-      "started_at": "2026-11-09T00:48:37-05:00",
-      "finished_at": "2026-11-09T00:48:37-05:00",
+      "started_at": "2026-11-09T00:59:27-05:00",
+      "finished_at": "2026-11-09T00:59:27-05:00",
       "status": "ok",
       "steps": [
         "load_fiera_history",
         "select_pricing_baseline_prior_publication_J",
-        "rebuild_column_j_fixture_rf",
+        "rebuild_column_j_boc_rf",
         "write_construction_record",
         "compute_curve_metrics",
         "evaluate_calibrated_triggers",
+        "write_decision_log",
         "write_monitor_snapshot"
       ]
     }
   ],
   "notes": {
-    "chart_reading": "Pricing basis is Fiera column J as of 2026-09-29. Current basis is Canada par as of 2026-10-30. Implied is rebuilt column J as of 2026-10-30 (rf_source=fiera_illiquid_construction_col_E). Yields are percent. Deltas are implied \u2212 pricing.",
+    "chart_reading": "Pricing basis is Fiera column J as of 2026-09-29. Current basis is Canada par as of 2026-10-30. Implied is rebuilt column J as of 2026-10-30 (rf_source=boc_zero_coupon_csv, rf_as_of=2026-10-21). Yields are percent. Deltas are implied \u2212 pricing.",
     "sam_feedback": "Trigger is curve-only (no Slope) with one primary measure: mean |\u0394| across display maturities. A breach starts a Slope profitability test (VoNB / Net CSM / CaPM). Maturity/twist are diagnostics only."
   },
   "metrics_computed": {
-    "abs_mean_change_bp": 15.54,
-    "max_abs_change_bp": 28.48,
-    "abs_twist_2s10s_bp": 0.15,
+    "abs_mean_change_bp": 16.92,
+    "max_abs_change_bp": 31.9,
+    "abs_twist_2s10s_bp": 2.26,
     "primary_threshold_bp": 35.0,
     "thresholds_calibrated": true,
     "thresholds_provisional": true
+  },
+  "decision": {
+    "measure": "abs_mean_change_bp",
+    "threshold_bp": 35.0,
+    "value_bp": 16.92,
+    "status": "NO_TRIGGER",
+    "decision_path": "data/decisions/2026-10-30.json"
+  },
+  "profitability": {
+    "status": "not_run",
+    "note": "Blocked on slope_api.py \u2014 no exports/profitability_summary_*.xlsx yet. After analyse_results.py writes an export, re-run pipeline.build_monitor_snapshot to attach it here.",
+    "summary": null
   }
 }
