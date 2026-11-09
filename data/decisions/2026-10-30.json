@@ -1,0 +1,52 @@
+{
+  "decision_id": "Fiera-20261030-01",
+  "as_of": "2026-10-30",
+  "pricing_basis_date": "2026-09-29",
+  "measure": "provisional_curve_only_bundle",
+  "metrics": {
+    "abs_mean_change_bp": 15.54,
+    "max_abs_change_bp": 28.48,
+    "abs_twist_2s10s_bp": 0.15,
+    "thresholds_provisional": true
+  },
+  "triggers": [
+    {
+      "id": "parallel",
+      "label": "Parallel movement",
+      "metric": "abs_mean_change_bp",
+      "threshold_bp": 25.0,
+      "value_bp": 15.54,
+      "status": "PASS"
+    },
+    {
+      "id": "maturity",
+      "label": "Maturity-level movement",
+      "metric": "max_abs_change_bp",
+      "threshold_bp": 50.0,
+      "value_bp": 28.48,
+      "status": "PASS"
+    },
+    {
+      "id": "twist",
+      "label": "Curve shape / twist",
+      "metric": "abs_twist_2s10s_bp",
+      "threshold_bp": 30.0,
+      "value_bp": 0.15,
+      "status": "PASS"
+    }
+  ],
+  "assessment": {
+    "overall_status": "NO_TRIGGER",
+    "detail": "All provisional rules passed",
+    "note": "Thresholds are provisional pending historical back-test.",
+    "outcome": "No Slope profitability test required under provisional rules."
+  },
+  "inputs": {
+    "pricing_series": "illiquid_annual_forward_column_J",
+    "implied_series": "illiquid_annual_forward_column_J",
+    "current_series": "canada_par_market_curves",
+    "source": "data/fiera/extracted/history"
+  },
+  "notes": "Generated with pipeline.build_monitor_snapshot; thresholds provisional.",
+  "written_at": "2026-11-08T23:36:35-05:00"
+}

@@ -1,0 +1,215 @@
+{
+  "_note": "Built by pipeline/build_monitor_snapshot.py from archived Fiera monthly method workbooks. Pricing basis = prior month column J; current = Canada par; implied = latest column J. Trigger: calibrated primary mean |\u0394| (see docs/memos/trigger-calibration.md).",
+  "schema_version": "1.0",
+  "snapshot_id": "Fiera-20261030-01",
+  "is_illustrative": false,
+  "meta": {
+    "observation_date": "2026-10-30",
+    "latest_market_date": "2026-10-30",
+    "market_session": "close",
+    "pricing_basis_date": "2026-09-29",
+    "source": "Fiera CIA IFRS 17 method workbook (Canada par + Illiquid col J)",
+    "source_label": "Fiera monthly",
+    "last_successful_update": "2026-11-09T00:32:46-05:00",
+    "timezone_label": "ET",
+    "data_availability": "CURRENT",
+    "currency": "CAD",
+    "yield_type": "nominal",
+    "premium_policy": "hold_latest_publication",
+    "premium_policy_note": "Between Fiera publication dates, column H is held; daily BoC intake is not wired yet. This snapshot uses consecutive monthly publications."
+  },
+  "maturities": [
+    1,
+    2,
+    3,
+    5,
+    7,
+    10,
+    15,
+    20,
+    30
+  ],
+  "curves": {
+    "pricing_basis": {
+      "label": "Pricing Basis Curve",
+      "as_of": "2026-09-29",
+      "series": "illiquid_annual_forward_column_J",
+      "yields": [
+        3.9737,
+        4.8058,
+        5.0516,
+        5.2982,
+        5.7987,
+        6.1724,
+        6.4428,
+        6.3881,
+        5.7196
+      ]
+    },
+    "current_basis": {
+      "label": "Current Basis Curve",
+      "as_of": "2026-10-30",
+      "series": "canada_par_market_curves",
+      "yields": [
+        3.009,
+        3.2705,
+        3.4096,
+        3.56,
+        3.6663,
+        3.8064,
+        3.9881,
+        4.0988,
+        4.1597
+      ]
+    },
+    "implied": {
+      "label": "Updated / Implied Curve",
+      "as_of": "2026-10-30",
+      "construction": "Fiera Illiquid_Ref_Curve_Construction column J (annual forward rates at publication)",
+      "construction_note": "Implied curve is Fiera's published annual forward rates for the latest month. Production will rebuild column J daily from a chosen Canada risk-free source + held/inferred liquidity premium.",
+      "series": "illiquid_annual_forward_column_J",
+      "yields": [
+        4.077,
+        4.6654,
+        4.8957,
+        5.0134,
+        5.581,
+        6.0335,
+        6.3123,
+        6.2245,
+        5.6558
+      ]
+    }
+  },
+  "assessment": {
+    "overall_status": "NO_TRIGGER",
+    "detail": "Primary rule passed (|mean \u0394| < 35 bp)",
+    "note": "Calibrated curve-only trigger. Diagnostics (max |\u0394|, 2s10s twist) do not fire the Slope profitability test on their own.",
+    "outcome": "No Slope profitability test required under calibrated primary rule."
+  },
+  "triggers": [
+    {
+      "id": "parallel",
+      "label": "Parallel movement (primary)",
+      "metric": "abs_mean_change_bp",
+      "threshold_bp": 35.0,
+      "value_bp": 15.54,
+      "status": "PASS",
+      "role": "primary"
+    },
+    {
+      "id": "maturity",
+      "label": "Maturity-level movement (diagnostic)",
+      "metric": "max_abs_change_bp",
+      "threshold_bp": 75.0,
+      "value_bp": 28.48,
+      "status": "PASS",
+      "role": "diagnostic"
+    },
+    {
+      "id": "twist",
+      "label": "Curve shape / twist (diagnostic)",
+      "metric": "abs_twist_2s10s_bp",
+      "threshold_bp": 40.0,
+      "value_bp": 0.15,
+      "status": "PASS",
+      "role": "diagnostic"
+    }
+  ],
+  "history": [
+    {
+      "date": "2025-11-28",
+      "mean_shift_bp": 3.4,
+      "flagged": false
+    },
+    {
+      "date": "2025-12-31",
+      "mean_shift_bp": 20.2,
+      "flagged": false
+    },
+    {
+      "date": "2026-01-30",
+      "mean_shift_bp": -4.7,
+      "flagged": false
+    },
+    {
+      "date": "2026-02-27",
+      "mean_shift_bp": -14.6,
+      "flagged": false
+    },
+    {
+      "date": "2026-03-31",
+      "mean_shift_bp": 34.3,
+      "flagged": false
+    },
+    {
+      "date": "2026-04-30",
+      "mean_shift_bp": 0.9,
+      "flagged": false
+    },
+    {
+      "date": "2026-05-29",
+      "mean_shift_bp": -15.2,
+      "flagged": false
+    },
+    {
+      "date": "2026-06-30",
+      "mean_shift_bp": 1.8,
+      "flagged": false
+    },
+    {
+      "date": "2026-07-31",
+      "mean_shift_bp": 30.7,
+      "flagged": false
+    },
+    {
+      "date": "2026-08-31",
+      "mean_shift_bp": 9.5,
+      "flagged": false
+    },
+    {
+      "date": "2026-09-29",
+      "mean_shift_bp": 17.7,
+      "flagged": false
+    },
+    {
+      "date": "2026-10-30",
+      "mean_shift_bp": -13.2,
+      "flagged": false
+    }
+  ],
+  "data_quality": {
+    "reference_basis": "Fiera 2026-10-30 \u00b7 pricing 2026-09-29",
+    "last_pipeline_run": "2026-11-09T00:32:46-05:00",
+    "pipeline_run_simulated": false,
+    "fiera_publications_used": 2,
+    "history_publications": 85
+  },
+  "pipeline_runs": [
+    {
+      "id": "Fiera-20261030-01",
+      "started_at": "2026-11-09T00:32:46-05:00",
+      "finished_at": "2026-11-09T00:32:46-05:00",
+      "status": "ok",
+      "steps": [
+        "load_fiera_history",
+        "select_latest_pair",
+        "compute_curve_metrics",
+        "evaluate_calibrated_triggers",
+        "write_monitor_snapshot"
+      ]
+    }
+  ],
+  "notes": {
+    "chart_reading": "Pricing basis is Fiera column J as of 2026-09-29. Current basis is Canada par as of 2026-10-30. Implied is Fiera column J as of 2026-10-30. Yields are percent. Deltas are implied \u2212 pricing.",
+    "sam_feedback": "Trigger is curve-only (no Slope) with one primary measure: mean |\u0394| across display maturities. A breach starts a Slope profitability test (VoNB / Net CSM / CaPM). Maturity/twist are diagnostics only."
+  },
+  "metrics_computed": {
+    "abs_mean_change_bp": 15.54,
+    "max_abs_change_bp": 28.48,
+    "abs_twist_2s10s_bp": 0.15,
+    "primary_threshold_bp": 35.0,
+    "thresholds_calibrated": true,
+    "thresholds_provisional": true
+  }
+}

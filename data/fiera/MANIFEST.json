@@ -1,0 +1,19 @@
+{
+  "source_page": "https://www.fieracapital.com/en-ca/institutional-markets/cia-ifrs-17-curves/",
+  "downloaded_at": "2026-11-08T23:23:56",
+  "monthly_raw_count": 85,
+  "date_range": [
+    "2019-10-31",
+    "2026-10-30"
+  ],
+  "latest_file": "2026-10-30-fiera-capital-method-cia-ifrs-17-market-and-reference-curves.xlsx",
+  "latest_as_of": "2026-10-30",
+  "layout": {
+    "fiera/docs": "Implementation note PDF",
+    "fiera/monthly_raw": "Full monthly method Excel workbooks (valuable primary source)",
+    "fiera/extracted/latest": "Key sheets from newest workbook as CSV/JSON",
+    "fiera/extracted/history": "Column H liquidity premium + Canada par + params across months"
+  },
+  "skipped": "Statistics PDFs (bond-subset counts/YTMs) \u2014 not needed for Slope/column J construction",
+  "extract_errors": []
+}

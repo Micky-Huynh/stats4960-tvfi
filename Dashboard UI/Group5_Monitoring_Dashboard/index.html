@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yield Curve Monitoring</title>
+<!--
+  Yield Curve Monitoring Dashboard — Group 5 (TVFI Secured Retirement)
+
+  Data flow (see "Group 5 Data Flow.png"):
+    our system   : ... -> Trigger -> Decision log ─────────┐
+    TVFI system  : run_curves.py -> Slope -> analyse_results.py
+                   -> Profitability workbook ───────────────┴-> monitor_snapshot.json -> this dashboard
+
+  CURRENT (local prototype, nothing is deployed):
+    - Open index.html directly: renders the embedded placeholder snapshot in dashboard.js.
+    - Serve this folder (e.g. `python -m http.server`) to auto-load ./monitor_snapshot.json.
+    - Or click "Load JSON" to pick any monitor_snapshot.json from disk.
+
+  FUTURE IMPLEMENTATION (Cloudflare):
+    - monitor_snapshot.json will be published to and served by a Cloudflare Worker, and this
+      page will fetch it from the Worker URL (CONFIG.snapshotUrl in dashboard.js).
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">TVFI</span>
+    <span class="org"><b>Thames Valley Financial Inc.</b><small>Actuarial Analytics</small></span>
+  </div>
+  <div class="topbar-right">
+    <span>Secured Retirement</span>
+    <span class="badge-outline">Internal · Design preview</span>
+    <span class="avatar" title="Group 5">G5</span>
+  </div>
+</header>
+
+<div class="notice" id="illustrativeBanner">
+  <span><b>ⓘ Illustrative data · Not actual TVFI results</b>Placeholder curves and audit metadata. No live retrieval or validated trigger outputs.</span>
+  <span class="mono" id="bannerSnapshotId"></span>
+</div>
+
+<section class="page-head">
+  <div class="title-row">
+    <div>
+      <h1>Yield Curve Monitoring Dashboard</h1>
+      <p class="sub">Secured Retirement | Daily Interest Rate Monitoring</p>
+    </div>
+    <p class="group">Group 5: Allison Shen, Ethan Stewart, Micky Huynh, Peter (Zhiyuan) Li, Sawyer Cobham</p>
+    <div class="actions">
+      <span class="eyebrow">Preview actions</span>
+      <button class="btn" id="btnLoad" type="button">⇪ Load JSON</button>
+      <input type="file" id="fileInput" accept=".json,application/json" hidden>
+      <button class="btn" id="btnHistory" type="button">↺ View history</button>
+      <button class="btn btn-dark" id="btnExport" type="button">⤓ Export snapshot</button>
+    </div>
+  </div>
+
+  <dl class="meta-row">
+    <div><dt>Observation date</dt><dd id="mObs"></dd></div>
+    <div><dt>Latest market date</dt><dd id="mMarket"></dd></div>
+    <div><dt id="mSourceLabel">Source</dt><dd id="mSource"></dd></div>
+    <div><dt>Last successful update</dt><dd id="mUpdate"></dd></div>
+    <div><dt>Data availability</dt><dd id="mAvail"></dd></div>
+  </dl>
+</section>
+
+<section class="toolbar">
+  <label class="select"><span>Observation</span><select id="selObs"></select></label>
+  <label class="select"><span>Curve</span>
+    <select id="selCurve">
+      <option value="all">All comparison curves</option>
+      <option value="pricing_basis">Pricing basis only</option>
+      <option value="current_basis">Current basis only</option>
+      <option value="implied">Updated / implied only</option>
+    </select>
+  </label>
+  <label class="select"><span>Maturity range</span>
+    <select id="selRange">
+      <option value="0-30">0.5–30 years</option>
+      <option value="0-5">0.5–5 years</option>
+      <option value="5-10">5–10 years</option>
+      <option value="10-30">10–30 years</option>
+    </select>
+  </label>
+  <span class="toolbar-note" id="toolbarNote"></span>
+</section>
+
+<nav class="tabs" role="tablist">
+  <button class="tab active" data-tab="overview" role="tab" type="button">Overview</button>
+  <button class="tab" data-tab="maturity" role="tab" type="button">Maturity Analysis</button>
+  <span class="tabs-note" id="tabsNote"></span>
+</nav>
+
+<main>
+  <!-- ============ OVERVIEW ============ -->
+  <div class="tab-panel" id="tab-overview">
+    <div class="kpis">
+      <article class="card kpi">
+        <p class="kpi-label">Parallel Yield Curve Shift (bp)</p>
+        <div class="kpi-value" id="kpiParallel"></div>
+        <p class="kpi-line">Implied vs pricing · equal-weight mean</p>
+        <p class="kpi-foot" id="kpiParallelFoot"></p>
+      </article>
+      <article class="card kpi">
+        <p class="kpi-label">Largest Maturity-Level Change (bp)</p>
+        <div class="kpi-value" id="kpiLargest"></div>
+        <p class="kpi-line" id="kpiLargestLine"></p>
+        <p class="kpi-foot">Signed implied − pricing at the most-moved maturity node.</p>
+      </article>
+      <article class="card kpi">
+        <p class="kpi-label">Curve Shape / Twist Indicator</p>
+        <div class="kpi-value" id="kpiTwist"></div>
+        <p class="kpi-line" id="kpiTwistLine"></p>
+        <p class="kpi-foot">Change in the 10y−2y slope (implied vs pricing).</p>
+      </article>
+      <article class="card kpi">
+        <p class="kpi-label">Overall Monitoring Status</p>
+        <div class="kpi-status" id="kpiStatus"></div>
+        <p class="kpi-line"><span class="dot-status" id="kpiStatusDetail"></span></p>
+        <p class="kpi-foot" id="kpiStatusNote"></p>
+      </article>
+    </div>
+
+    <div class="grid-main">
+      <article class="card">
+        <div class="card-head">
+          <div>
+            <h2>Canadian yield curve comparison</h2>
+            <p class="desc" id="curveDesc"></p>
+          </div>
+          <span class="chip">YIELD (%)</span>
+        </div>
+        <div class="legend" id="curveLegend"></div>
+        <div class="chart-wrap" id="curveChart"></div>
+
+        <div class="card-head sub-head">
+          <h3>Maturity-level change (bp)</h3>
+          <span class="desc" id="barDesc"></span>
+        </div>
+        <div class="chart-wrap" id="barChart"></div>
+        <p class="reading" id="readingNote"></p>
+      </article>
+
+      <div class="stack">
+        <article class="card">
+          <div class="card-head">
+            <h2>Trigger Assessment</h2>
+            <span class="info" title="Trigger statuses come from the decision log in monitor_snapshot.json. The dashboard displays them; it does not evaluate rules.">ⓘ</span>
+          </div>
+          <div class="status-box" id="triggerStatusBox"></div>
+          <div id="triggerList"></div>
+          <p class="outcome" id="triggerOutcome"></p>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <h2>Data Quality &amp; Audit Trail</h2>
+            <span class="chip" id="dqChip">DEMO</span>
+          </div>
+          <dl class="kv" id="dqList"></dl>
+          <button class="link-row" id="pipelineRow" type="button">
+            <span><b>Pipeline run history</b><small id="pipelineSub"></small></span>
+            <span aria-hidden="true">↗</span>
+          </button>
+          <div class="provenance" id="provenance">
+            <b>Illustrative provenance</b>
+            Source names describe planned inputs only. No market feed or pipeline is connected.
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <article class="card history" id="historyCard">
+      <div>
+        <div class="card-head">
+          <div>
+            <h2>Historical movement indicator</h2>
+            <p class="desc">Equal-weight mean shift · implied − pricing (bp)<span id="historyDescSuffix"></span></p>
+          </div>
+          <span class="desc" id="historyPeriod"></span>
+        </div>
+        <div class="chart-wrap" id="historyChart"></div>
+      </div>
+      <aside class="history-events">
+        <span class="events-tag">○ Simulated trigger events</span>
+        <div class="events-count"><span id="eventsCount"></span> <small>observations marked</small></div>
+        <p class="desc">Markers show how unusual movements and event frequency could be reviewed. They are hand-selected examples, not validated rule outputs or an estimated trigger rate.</p>
+        <ul class="events-list" id="eventsList"></ul>
+      </aside>
+    </article>
+  </div>
+
+  <!-- ============ MATURITY ANALYSIS ============ -->
+  <div class="tab-panel" id="tab-maturity" hidden>
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <h2>Maturity Analysis</h2>
+          <p class="desc">Node-level reconciliation · <span id="matIllus"></span>annual yields (%) and signed changes (bp)</p>
+        </div>
+        <div class="actions">
+          <span class="desc" id="matCount"></span>
+          <button class="btn btn-sm" id="btnCsv" type="button">⤓ Export CSV</button>
+        </div>
+      </div>
+
+      <div class="sel-strip" id="selStrip"></div>
+
+      <div class="table-scroll">
+        <table class="mat">
+          <thead>
+            <tr>
+              <th>Maturity<br>(years) ↑</th>
+              <th id="thPricing">Pricing Basis Curve</th>
+              <th id="thCurrent">Current Basis Curve</th>
+              <th id="thImplied">Updated / Implied Curve</th>
+              <th>Current − pricing<br>market · bp</th>
+              <th>Implied − pricing<br>trigger · bp</th>
+              <th>Validation<br>sample checks</th>
+            </tr>
+          </thead>
+          <tbody id="matBody"></tbody>
+        </table>
+      </div>
+      <div class="table-foot">
+        <span id="matFoot"></span>
+        <span>1 percentage point = 100 bp · values rounded to 2 decimal places</span>
+      </div>
+      <p class="fine" id="matFine"></p>
+    </article>
+
+    <div class="formulas">
+      <article class="card formula">
+        <span class="eyebrow">01 / Level</span>
+        <h3>Parallel Yield Curve Shift (bp)</h3>
+        <code id="fParallel"></code>
+        <p class="desc">Equal weight at each maturity node. This level proxy can coexist with a twist; it does not assert that the entire curve moved in parallel.</p>
+      </article>
+      <article class="card formula">
+        <span class="eyebrow">02 / Shape</span>
+        <h3>Curve Shape / Twist Indicator</h3>
+        <code id="fTwist"></code>
+        <p class="desc" id="fTwistDesc"></p>
+      </article>
+      <article class="card formula">
+        <span class="eyebrow">03 / Implied curve</span>
+        <h3>Synthetic construction assumption</h3>
+        <code id="fImplied"></code>
+        <p class="desc" id="fImpliedDesc"></p>
+      </article>
+    </div>
+  </div>
+</main>
+
+<footer class="method">
+  <div class="method-head">
+    <span class="eyebrow">Methodology &amp; governance</span>
+    <span>TVFI · Internal actuarial use · Illustrative design v1.0</span>
+  </div>
+  <p>Planned Python pipeline: retrieve daily Canadian yields, use the latest available Fiera reference where appropriate, construct implied curves, calculate movements and evaluate proposed triggers. Pipeline integration, actual calculations and thresholds await separate implementation, calibration and validation.</p>
+  <p class="strong">Monitoring may warrant further profitability analysis. This dashboard does not recommend repricing; calculation and trigger validation are separate.</p>
+  <p class="source-line">Loaded snapshot: <span class="mono" id="loadedFrom"></span></p>
+</footer>
+
+<dialog id="historyDialog">
+  <div class="dialog-head">
+    <h2>Snapshot history</h2>
+    <button class="btn btn-sm" id="btnCloseDialog" type="button">Close</button>
+  </div>
+  <h3>Historical movement observations</h3>
+  <div class="table-scroll">
+    <table class="mat compact">
+      <thead><tr><th>Date</th><th>Mean shift (bp)</th><th>Marked</th><th>Note</th></tr></thead>
+      <tbody id="historyBody"></tbody>
+    </table>
+  </div>
+  <h3>Pipeline runs</h3>
+  <div id="pipelineRuns"></div>
+</dialog>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+parameter,value
+Length of Observable Period (years),30
+Ultimate Risk-Free Rate,0.0365
+Ultimate Rate Timing (years),70
+Liquidity Spread Ratio (Years 1-3),0.8
+Liquidity Spread Ratio (Year 4),0.75
+Liquidity Spread Ratio (Years 5+),0.7
+Liquidity Premium Constant,0.005
+Ultimate Liquidity Premium,0.015
+Interpolation Methodology,Linear

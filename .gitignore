@@ -1,0 +1,24 @@
+# Local handoffs (not deliverables)
+docs/handoff/
+
+# macOS / editor junk
+.DS_Store
+Thumbs.db
+~$*
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# Temp / lock files
+*.tmp
+*.log
