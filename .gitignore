@@ -1,6 +1,9 @@
 # Local handoffs (not deliverables)
 docs/handoff/
 
+# TVFI-provided Slope library (local only; do not publish)
+slope_api.py
+
 # Course / partner Word docs (keep local; do not publish)
 Updated Project Information.docx
 TVFI Yield Curve Monitoring Project Brief.docx
