@@ -1,47 +1,48 @@
-# Memo: Curve-Only Trigger Calibration
+# Memo: Curve-Only Trigger Calibration (weighted revision)
 
 **To:** TVFI / Group 5 project file  
-**From:** Wave 2 E (STATS 4960 Group 5)  
-**Date:** 2026-11-09  
-**Subject:** Calibrate a single primary curve-only trigger (no Slope inside the trigger)  
-**Inputs:** `data/fiera/extracted/history/liquidity_premium_by_month.csv` (85 Fiera months, 2019-10 → 2026-10); `pipeline/metrics.py`; `pipeline/fiera_history.DISPLAY_MATURITIES`
+**From:** STATS 4960 Group 5  
+**Date:** 2026-11-14  
+**Subject:** Replace the equal-weight primary with a liability-weighted primary; keep one trigger  
+**Inputs:** `data/fiera/extracted/history/liquidity_premium_by_month.csv` (85 Fiera months, 2019-10 → 2026-10)  
+**Supersedes:** memo of 2026-11-09 (mean |Δ| ≥ 35 bp over display maturities)
 
 ---
 
 ## 1. Decision
 
-**Primary rule (drives `overall_status`):**
+**Primary rule (drives `overall_status`):** start a Slope profitability test when
 
-> Fire / start a Slope profitability test when the **mean absolute change** across display maturities  
-> `|Δ|` averaged over `{1, 2, 3, 5, 7, 10, 15, 20, 30}` ≥ **35 bp** between consecutive monthly Fiera column-J curves (or pricing basis vs next implied).
+```
+T = Σ_{t=1..30} w_t · |r_t(Current) − r_t(Pricing)|  ≥  35 bp
+```
+
+where `r_t` is the column-J annual forward rate at year `t` and `w_t` is the per-year weight below.
+
+| Years | Total weight | Per year |
+|-------|--------------|----------|
+| 1–5 | 5% | 1% |
+| 6–10 | 10% | 2% |
+| 11–15 | 15% | 3% |
+| 16–20 | 25% | 5% |
+| 21–25 | 25% | 5% |
+| 26–30 | 20% | 4% |
 
 **Diagnostics (reported, do not drive overall status):**
 
-| Measure | Diagnostic threshold | Role |
-|---------|----------------------|------|
-| max \|Δ\| bp | 75 bp | Flags single-node / long-end spikes |
-| \|2s10s twist\| bp | 40 bp | Shape / twist context |
+| Measure | Threshold | Role |
+|---------|-----------|------|
+| Largest per-bucket mean \|Δ\| | 75 bp | Flags a move concentrated in one part of the curve |
+| \|2s10s twist\| | 40 bp | Shape context |
+| Signed sum S = Σ w_t · Δr_t | none | Direction of the move |
 
-Sam constraint: **one** trigger that starts a Slope profitability test; drop the redundant multi-rule / “second black-swan” OR logic.
+Sam's constraint is unchanged: one trigger starts a Slope profitability test.
 
 ---
 
-## 2. Methodology
+## 2. Why change the primary
 
-1. Load archived monthly **annual forward rates** (column J) from `liquidity_premium_by_month.csv`.
-2. For each consecutive pair of publication dates, pick yields at `DISPLAY_MATURITIES`, convert to percent, and compute bp changes via `metrics.changes_bp`.
-3. For each interval compute:
-   - **mean \|Δ\| bp** — equal-weight average of absolute changes (primary candidate)
-   - **duration-weighted mean \|Δ\| bp** — weights by maturity years (sensitivity check)
-   - **max \|Δ\| bp** — largest absolute node move
-   - **\|2s10s twist\| bp** — `|Δ10y − Δ2y|`
-4. Tabulate fire rates across candidate thresholds; pick an ops-reasonable rate (few times per year in calm markets; denser in crises).
-
-Reproduce with:
-
-```bash
-python3 -m pipeline.backtest_trigger
-```
+Secured Retirement pays income decades out, so its benefit rates depend mostly on rates at 16–30 years. The equal-weight mean over nine display maturities gave the 1, 2 and 3 year points a third of the vote. The weighted measure gives years 16–30 70% of the weight and years 1–5 5%.
 
 ---
 
@@ -49,60 +50,52 @@ python3 -m pipeline.backtest_trigger
 
 | Measure | min | p50 | p90 | max |
 |---------|-----|-----|-----|-----|
-| mean \|Δ\| bp | 4.2 | 19.0 | 43.2 | 67.8 |
-| duration-weighted mean \|Δ\| | 5.5 | 20.8 | 44.3 | 89.9 |
-| max \|Δ\| bp | 8.7 | 39.2 | 85.6 | 151.8 |
-| \|2s10s twist\| bp | 0.2 | 14.3 | 40.5 | 92.2 |
+| T (weighted \|Δ\|) bp | 4.6 | 19.5 | 37.9 | 98.2 |
+| Largest bucket mean \|Δ\| bp | 7.8 | 35.1 | 74.6 | 141.4 |
+| Old mean \|Δ\| bp | 4.2 | 19.0 | 43.2 | 67.8 |
 
-### Fire-rate trade-off — primary candidate (mean \|Δ\|)
+| X (bp) | Fires / 84 | ≈ / year |
+|--------|------------|----------|
+| 25 | 23 | 3.29 |
+| 30 | 18 | 2.57 |
+| **35 (chosen)** | **12** | **1.71** |
+| 40–50 | 7 | 1.00 |
+| 60 | 3 | 0.43 |
 
-| Threshold (bp) | Fires / 84 | Rate | ≈ / year |
-|----------------|------------|------|----------|
-| 25 (old provisional) | 29 | 34.5% | 4.1 |
-| 30 | 21 | 25.0% | 3.0 |
-| **35 (chosen)** | **14** | **16.7%** | **2.0** |
-| 40 | 12 | 14.3% | 1.7 |
-| 50 | 5 | 6.0% | 0.7 |
+At 35 bp the rule fires in 2020 (5), 2021 (1), 2022 (3), 2023 (2) and 2026 (1), and never in 2024–2025.
 
-Old provisional **OR of three** (parallel≥25 **or** max≥50 **or** twist≥30) fired **45/84 (53.6%, ≈6.4/yr)** — far too chatty for an ops trigger that launches Slope.
+### Primary fires at X = 35 (12)
 
----
-
-## 4. Why mean \|Δ\| @ 35 bp (not duration-weighted / max / twist)
-
-1. **Already in the monitor path** (`abs_mean_change_bp`) and matches “parallel movement” language on the dashboard.
-2. **Balances the curve** without letting a single noisy long end (often 20y/30y) dominate — max \|Δ\| alone fires ~4×/yr even at 50 bp and often reflects one node.
-3. **Duration-weighted** tracks mean \|Δ\| closely (same ~1.7/yr at 40 bp) but needs a new metric and slightly overweight long maturities; data does not strongly favor it over equal-weight mean.
-4. **Twist** is useful context but can fire without a broad curve move (and vice versa); keeping it diagnostic avoids a second black-swan path.
-5. **35 bp** lands near ~2 fires/year over 2019–2026, concentrated in COVID (2020) and the hiking cycle (2022–23), with **zero** fires in calm 2024–2025 under this rule.
-
-### Primary fires at 35 bp (14 months)
-
-| as_of | mean \|Δ\| | max \|Δ\| | twist |
-|-------|------------|-----------|-------|
-| 2020-01-31 | 43.2 | 61.4 | 9.6 |
-| 2020-03-31 | 62.9 | 121.9 | 29.2 |
-| 2020-04-30 | 67.8 | 151.8 | 19.4 |
-| 2021-02-26 | 43.1 | 132.7 | 8.4 |
-| 2022-01-31 | 48.2 | 62.6 | 3.0 |
-| 2022-03-31 | 42.2 | 92.7 | 92.2 |
-| 2022-04-29 | 63.5 | 112.3 | 21.7 |
-| 2022-07-29 | 46.2 | 78.6 | 32.0 |
-| 2022-08-31 | 38.2 | 70.5 | 53.9 |
-| 2022-11-30 | 46.9 | 85.6 | 16.4 |
-| 2023-01-31 | 39.5 | 68.1 | 27.8 |
-| 2023-09-29 | 50.7 | 127.4 | 16.6 |
-| 2023-11-30 | 58.9 | 66.4 | 8.0 |
-| 2023-12-29 | 41.2 | 74.8 | 25.7 |
+| as_of | T | S (signed) | Largest bucket mean \|Δ\| | Bucket |
+|-------|---|------------|---------------------------|--------|
+| 2020-01-31 | 37.6 | −37.6 | 54.3 | 6–10 |
+| 2020-03-31 | 98.2 | +98.2 | 120.1 | 21–25 |
+| 2020-04-30 | 86.2 | −86.2 | 141.4 | 26–30 |
+| 2020-06-30 | 39.0 | −39.0 | 50.6 | 21–25 |
+| 2020-10-30 | 35.9 | +35.9 | 86.1 | 26–30 |
+| 2021-02-26 | 37.9 | +33.5 | 99.6 | 26–30 |
+| 2022-01-31 | 50.6 | +50.6 | 56.3 | 16–20 |
+| 2022-04-29 | 65.7 | +65.7 | 95.0 | 26–30 |
+| 2022-11-30 | 55.1 | −55.1 | 79.2 | 26–30 |
+| 2023-09-29 | 55.7 | +55.7 | 103.0 | 26–30 |
+| 2023-11-30 | 56.1 | −56.1 | 66.2 | 11–15 |
+| 2026-07-31 | 36.2 | +36.2 | 41.3 | 21–25 |
 
 ---
 
-## 5. Trade-offs / caveats
+## 4. Change from the previous rule
 
-- **Misses isolated long-end spikes** with small mean moves (e.g. 2020-10 mean 21 / max 104; 2024-03 mean 15 / max 86). Accepted: Sam asked for one broad-curve primary, not a second black-swan node rule.
-- **Monthly publication cadence** only — daily RF rebuild may produce different intra-month distributions; re-calibrate when daily BoC intake is wired.
-- **Sample is rate-cycle heavy** (COVID + hiking). In a long calm regime, 35 bp may fire rarely (good); if the team wants more Slope dry-runs, lower toward 30 bp (~3/yr).
-- Diagnostics remain in the snapshot JSON so ops can see max/twist without promoting them to overall status.
+Nine months fire under both rules. Five months no longer fire (2022-03, 2022-07, 2022-08, 2023-01, 2023-12); these were short- and mid-curve moves. Three months now fire (2020-06, 2020-10, 2026-07); these were long-end moves the equal-weight mean diluted.
+
+---
+
+## 5. Trade-offs and caveats
+
+- T uses absolute values, so opposite moves do not cancel, but T has no direction. The signed sum S is shown beside it for that reason.
+- The weights are the team's judgment. An earlier look at the Example Profitability Model cash flows suggests the long end (30 years and beyond) carries more of the sensitivity than the table gives it. A sensitivity run with model-derived weights is planned.
+- T ignores rates beyond year 30, where the curve is extrapolated.
+- The bucket check stays a diagnostic. Letting it fire on its own would add one month on this history (2022-03, a short-end move), and would break the one-trigger rule.
+- Calibrated on monthly publications over a period dominated by COVID and the 2022–23 hikes; re-calibrate when daily curves are available.
 
 ---
 
@@ -110,13 +103,15 @@ Old provisional **OR of three** (parallel≥25 **or** max≥50 **or** twist≥30
 
 | File | Change |
 |------|--------|
-| `pipeline/trigger.py` | `CALIBRATED` primary 35 bp; `overall()` follows primary only |
-| `pipeline/snapshot.py` | History flagging + notes use calibrated primary |
-| `pipeline/backtest_trigger.py` | Prints distribution / fire tables |
+| `pipeline/metrics.py` | Weight table + T / S / bucket helpers |
+| `pipeline/trigger.py` | Primary = weighted T @ 35 bp; bucket + twist + signed diagnostics |
+| `pipeline/interval_metrics.py` | Weighted pair metrics over years 1..30 |
+| `pipeline/backtest_trigger.py` | Prints T / Layer-2 fire tables |
 | `docs/memos/trigger-calibration.md` | This memo |
 
-Rebuild:
+Reproduce:
 
 ```bash
+python3 -m pipeline.backtest_trigger
 python3 -m pipeline.build_monitor_snapshot
 ```

@@ -24,21 +24,19 @@ Open `index.html` in Chrome, Edge, Firefox or Safari.
 
 Browsers block a page opened from disk from reading other files, so in this mode the dashboard shows a built-in copy of the placeholder data instead of reading `monitor_snapshot.json`. Everything else works. You can still load a JSON file with the **Load JSON** button.
 
-### Option B — local server (reads `monitor_snapshot.json`)
+### Option B — local server (reads pipeline snapshot)
 
-You need Python 3, nothing else to install.
+You need Python 3, nothing else to install. The pipeline writes **once** to `data/monitor/monitor_snapshot.json`; the dashboard loads that path via `CONFIG.snapshotUrl`.
 
-1. Open a terminal in the unzipped folder.
-   - **Windows:** open the folder in File Explorer, click the address bar, type `powershell`, press Enter.
-   - **Mac:** right-click the folder in Finder → *New Terminal at Folder* (or `cd` into it).
+1. Open a terminal in the **TVFI project root** (parent of `Dashboard UI/` and `data/`).
 2. Start the server:
    - **Windows:** `py -m http.server 8000`
      (use `py`, not `python` — on many Windows machines `python` just opens the Microsoft Store)
    - **Mac / Linux:** `python3 -m http.server 8000`
-3. Go to **http://localhost:8000** in your browser.
+3. Go to **http://127.0.0.1:8000/Dashboard%20UI/Group5_Monitoring_Dashboard/** in your browser.
 4. Stop the server with **Ctrl + C** in the terminal.
 
-To check it's reading the file, scroll to the footer: it should say `Loaded snapshot: monitor_snapshot.json`. If it says `embedded placeholder`, you're in Option A mode.
+To check it's reading the file, scroll to the footer: it should say `Loaded snapshot: ../../data/monitor/monitor_snapshot.json`. If it says `embedded placeholder`, you're in Option A mode (or the server cwd is wrong).
 
 After editing `monitor_snapshot.json`, refresh the browser.
 

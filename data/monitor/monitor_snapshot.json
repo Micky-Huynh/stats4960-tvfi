@@ -1,5 +1,5 @@
 {
-  "_note": "Built by pipeline/build_monitor_snapshot.py --rebuilt. Pricing basis = prior month archived column J; current = Canada par; implied = curve_builder rebuilt column J (BoC RF as of 2026-10-21). Trigger: calibrated primary mean |\u0394| (see docs/memos/trigger-calibration.md).",
+  "_note": "Built by pipeline/build_monitor_snapshot.py --rebuilt. Pricing basis = prior month archived column J; current = Canada par; implied = curve_builder rebuilt column J (BoC RF as of 2026-10-21). Trigger: calibrated weighted |\u0394| T (see docs/memos/trigger-calibration.md).",
   "schema_version": "1.0",
   "snapshot_id": "Fiera-20261030-R01",
   "is_illustrative": false,
@@ -10,7 +10,7 @@
     "pricing_basis_date": "2026-09-29",
     "source": "Fiera CIA IFRS 17 method workbook (Canada par + Illiquid col J)",
     "source_label": "Fiera monthly + rebuilt J",
-    "last_successful_update": "2026-11-09T00:59:27-05:00",
+    "last_successful_update": "2026-11-14T18:52:50-05:00",
     "timezone_label": "ET",
     "data_availability": "CURRENT",
     "currency": "CAD",
@@ -93,26 +93,26 @@
   },
   "assessment": {
     "overall_status": "NO_TRIGGER",
-    "detail": "Primary rule passed (|mean \u0394| < 35 bp)",
-    "note": "Calibrated curve-only trigger. Diagnostics (max |\u0394|, 2s10s twist) do not fire the Slope profitability test on their own.",
+    "detail": "Primary rule passed (T < 35 bp)",
+    "note": "Calibrated curve-only trigger. Diagnostics (bucket mean |\u0394|, 2s10s twist, signed S) do not fire the Slope profitability test on their own.",
     "outcome": "No Slope profitability test required under calibrated primary rule."
   },
   "triggers": [
     {
-      "id": "parallel",
-      "label": "Parallel movement (primary)",
-      "metric": "abs_mean_change_bp",
+      "id": "weighted",
+      "label": "Weighted |\u0394| T (primary)",
+      "metric": "weighted_abs_change_bp",
       "threshold_bp": 35.0,
-      "value_bp": 16.92,
+      "value_bp": 19.83,
       "status": "PASS",
       "role": "primary"
     },
     {
-      "id": "maturity",
-      "label": "Maturity-level movement (diagnostic)",
-      "metric": "max_abs_change_bp",
+      "id": "bucket",
+      "label": "Largest bucket mean |\u0394| (16-20)",
+      "metric": "max_bucket_abs_change_bp",
       "threshold_bp": 75.0,
-      "value_bp": 31.9,
+      "value_bp": 36.6,
       "status": "PASS",
       "role": "diagnostic"
     },
@@ -124,83 +124,120 @@
       "value_bp": 2.26,
       "status": "PASS",
       "role": "diagnostic"
+    },
+    {
+      "id": "signed",
+      "label": "Signed weighted \u0394 S (direction)",
+      "metric": "weighted_signed_change_bp",
+      "threshold_bp": null,
+      "value_bp": -10.94,
+      "status": "NOT_EVALUATED",
+      "role": "diagnostic"
     }
   ],
   "history": [
     {
       "date": "2025-11-28",
       "mean_shift_bp": 3.4,
-      "flagged": false
+      "weighted_abs_bp": 9.0,
+      "flagged": false,
+      "basis": "archive_consecutive_column_j"
     },
     {
       "date": "2025-12-31",
       "mean_shift_bp": 20.2,
-      "flagged": false
+      "weighted_abs_bp": 22.6,
+      "flagged": false,
+      "basis": "archive_consecutive_column_j"
     },
     {
       "date": "2026-01-30",
       "mean_shift_bp": -4.7,
-      "flagged": false
+      "weighted_abs_bp": 4.6,
+      "flagged": false,
+      "basis": "archive_consecutive_column_j"
     },
     {
       "date": "2026-02-27",
       "mean_shift_bp": -14.6,
-      "flagged": false
+      "weighted_abs_bp": 9.7,
+      "flagged": false,
+      "basis": "archive_consecutive_column_j"
     },
     {
       "date": "2026-03-31",
       "mean_shift_bp": 34.3,
-      "flagged": false
+      "weighted_abs_bp": 30.3,
+      "flagged": false,
+      "basis": "archive_consecutive_column_j"
     },
     {
       "date": "2026-04-30",
       "mean_shift_bp": 0.9,
-      "flagged": false
+      "weighted_abs_bp": 6.2,
+      "flagged": false,
+      "basis": "archive_consecutive_column_j"
     },
     {
       "date": "2026-05-29",
       "mean_shift_bp": -15.2,
-      "flagged": false
+      "weighted_abs_bp": 14.7,
+      "flagged": false,
+      "basis": "archive_consecutive_column_j"
     },
     {
       "date": "2026-06-30",
       "mean_shift_bp": 1.8,
-      "flagged": false
+      "weighted_abs_bp": 8.0,
+      "flagged": false,
+      "basis": "archive_consecutive_column_j"
     },
     {
       "date": "2026-07-31",
       "mean_shift_bp": 30.7,
-      "flagged": false
+      "weighted_abs_bp": 36.2,
+      "flagged": false,
+      "basis": "archive_consecutive_column_j",
+      "note": "archive-only context (\u226535 bp weighted T); not a live rebuilt trigger"
     },
     {
       "date": "2026-08-31",
       "mean_shift_bp": 9.5,
-      "flagged": false
+      "weighted_abs_bp": 10.5,
+      "flagged": false,
+      "basis": "archive_consecutive_column_j"
     },
     {
       "date": "2026-09-29",
       "mean_shift_bp": 17.7,
-      "flagged": false
+      "weighted_abs_bp": 7.9,
+      "flagged": false,
+      "basis": "archive_consecutive_column_j"
     },
     {
       "date": "2026-10-30",
       "mean_shift_bp": -13.2,
-      "flagged": false
+      "weighted_abs_bp": 14.6,
+      "flagged": false,
+      "basis": "archive_consecutive_column_j"
     }
   ],
   "data_quality": {
     "reference_basis": "Fiera 2026-10-30 \u00b7 pricing 2026-09-29",
-    "last_pipeline_run": "2026-11-09T00:59:27-05:00",
+    "last_pipeline_run": "2026-11-14T18:52:50-05:00",
     "pipeline_run_simulated": false,
     "fiera_publications_used": 2,
     "history_publications": 85,
-    "curve_mode": "rebuilt"
+    "curve_mode": "rebuilt",
+    "history_basis": "archive_consecutive_column_j",
+    "history_matches_live_path": false,
+    "history_flagging": "disabled_in_rebuilt"
   },
   "pipeline_runs": [
     {
       "id": "Fiera-20261030-R01",
-      "started_at": "2026-11-09T00:59:27-05:00",
-      "finished_at": "2026-11-09T00:59:27-05:00",
+      "started_at": "2026-11-14T18:52:50-05:00",
+      "finished_at": "2026-11-14T18:52:50-05:00",
       "status": "ok",
       "steps": [
         "load_fiera_history",
@@ -216,26 +253,33 @@
   ],
   "notes": {
     "chart_reading": "Pricing basis is Fiera column J as of 2026-09-29. Current basis is Canada par as of 2026-10-30. Implied is rebuilt column J as of 2026-10-30 (rf_source=boc_zero_coupon_csv, rf_as_of=2026-10-21). Yields are percent. Deltas are implied \u2212 pricing.",
-    "sam_feedback": "Trigger is curve-only (no Slope) with one primary measure: mean |\u0394| across display maturities. A breach starts a Slope profitability test (VoNB / Net CSM / CaPM). Maturity/twist are diagnostics only."
+    "history_reading": "History chart is archived Fiera column-J pairs only (publication \u2192 next publication). It is not the live rebuilt path (prior J vs BoC-rebuilt implied). Red flags are omitted in rebuilt mode so archive moves are not read as live triggers.",
+    "sam_feedback": "Trigger is curve-only (no Slope) with one primary measure: liability-weighted |\u0394| T over years 1\u201330. A breach starts a Slope profitability test (VoNB / Net CSM / CaPM). Bucket / twist / signed S are diagnostics only."
   },
   "metrics_computed": {
+    "weighted_abs_change_bp": 19.83,
+    "weighted_signed_change_bp": -10.94,
+    "max_bucket_abs_change_bp": 36.6,
+    "max_bucket_label": "16-20",
     "abs_mean_change_bp": 16.92,
     "max_abs_change_bp": 31.9,
+    "max_maturity": 15,
     "abs_twist_2s10s_bp": 2.26,
     "primary_threshold_bp": 35.0,
+    "thresholds_active": true,
     "thresholds_calibrated": true,
-    "thresholds_provisional": true
+    "thresholds_provisional": false
   },
   "decision": {
-    "measure": "abs_mean_change_bp",
+    "measure": "weighted_abs_change_bp",
     "threshold_bp": 35.0,
-    "value_bp": 16.92,
+    "value_bp": 19.83,
     "status": "NO_TRIGGER",
     "decision_path": "data/decisions/2026-10-30.json"
   },
   "profitability": {
     "status": "not_run",
-    "note": "Blocked on slope_api.py \u2014 no exports/profitability_summary_*.xlsx yet. After analyse_results.py writes an export, re-run pipeline.build_monitor_snapshot to attach it here.",
+    "note": "No exports/profitability_summary_*.xlsx yet. After analyse_results.py writes an export (needs slope_api.py), re-run pipeline.build_monitor_snapshot to attach the path here.",
     "summary": null
   }
 }

@@ -19,7 +19,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from pipeline import fiera_history as fh  # noqa: E402
-from pipeline import metrics  # noqa: E402
+from pipeline import interval_metrics as im  # noqa: E402
 from pipeline import trigger  # noqa: E402
 
 
@@ -27,30 +27,22 @@ def interval_metrics(
     forwards: Dict[str, Dict[int, float]],
     maturities: List[int],
 ) -> List[dict]:
-    dates = fh.sorted_as_of(forwards)
+    """Back-test rows; twist_bp is absolute to match historical printouts."""
     rows: List[dict] = []
-    for prev, curr in zip(dates, dates[1:]):
-        base = fh.to_percent(fh.pick_at_maturities(forwards[prev], maturities))
-        new = fh.to_percent(fh.pick_at_maturities(forwards[curr], maturities))
-        ch = metrics.changes_bp(base, new)
-        mean_abs = metrics.mean_abs_change_bp(ch)
-        max_ch, max_idx = metrics.max_abs_change_bp(ch)
-        twist = metrics.twist_2s10s_bp(maturities, ch)
-        # Duration-aware alternative: maturity-weighted mean |Δ|.
-        pairs = [(abs(v), m) for v, m in zip(ch, maturities) if v is not None]
-        if pairs:
-            dur = sum(a * m for a, m in pairs) / sum(m for _, m in pairs)
-        else:
-            dur = None
+    for interval in im.consecutive_interval_metrics(forwards, maturities):
         rows.append(
             {
-                "prev": prev,
-                "curr": curr,
-                "mean_abs_bp": mean_abs,
-                "max_abs_bp": None if max_ch is None else abs(max_ch),
-                "max_maturity": None if max_idx < 0 else maturities[max_idx],
-                "twist_bp": None if twist is None else abs(twist),
-                "dur_aware_bp": dur,
+                "prev": interval["prev"],
+                "curr": interval["curr"],
+                "mean_abs_bp": interval["mean_abs_bp"],
+                "max_abs_bp": interval["max_abs_bp"],
+                "max_maturity": interval["max_maturity"],
+                "twist_bp": interval["twist_abs_bp"],
+                "dur_aware_bp": interval["dur_aware_bp"],
+                "weighted_abs_bp": interval["weighted_abs_bp"],
+                "weighted_signed_bp": interval["weighted_signed_bp"],
+                "max_bucket_abs_bp": interval["max_bucket_abs_bp"],
+                "max_bucket_label": interval["max_bucket_label"],
             }
         )
     return rows
@@ -88,18 +80,22 @@ def main() -> int:
     maturities = list(fh.DISPLAY_MATURITIES)
     rows = interval_metrics(forwards, maturities)
     dates = fh.sorted_as_of(forwards)
-    primary_thr = trigger.CALIBRATED["parallel"]
+    primary_thr = trigger.CALIBRATED["weighted"]
+    bucket_thr = trigger.CALIBRATED["bucket"]
 
     print("Fiera consecutive monthly forward curves (column J)")
     print(f"  publications: {len(dates)}  ({dates[0]} → {dates[-1]})")
     print(f"  intervals:    {len(rows)}")
-    print(f"  maturities:   {maturities}")
-    print(f"  calibrated primary: mean |Δ| ≥ {primary_thr:g} bp")
+    print(f"  display mats: {maturities}")
+    print(f"  trigger years: 1..30 (weighted T)")
+    print(f"  calibrated primary: weighted |Δ| T ≥ {primary_thr:g} bp")
+    print(f"  bucket diagnostic: max bucket mean |Δ| ≥ {bucket_thr:g} bp")
 
     for key, label in [
-        ("mean_abs_bp", "mean |Δ| bp (PRIMARY)"),
-        ("dur_aware_bp", "duration-weighted mean |Δ| bp"),
-        ("max_abs_bp", "max |Δ| bp (diagnostic)"),
+        ("weighted_abs_bp", "weighted |Δ| T bp (PRIMARY)"),
+        ("mean_abs_bp", "equal-weight mean |Δ| bp (legacy comparison)"),
+        ("max_bucket_abs_bp", "max bucket mean |Δ| bp (Layer 2 diagnostic)"),
+        ("max_abs_bp", "max |Δ| bp (legacy single-node)"),
         ("twist_bp", "|2s10s twist| bp (diagnostic)"),
     ]:
         xs = [r[key] for r in rows if r[key] is not None]
@@ -109,27 +105,50 @@ def main() -> int:
         )
         fire_table(xs, [15, 20, 25, 30, 35, 40, 50, 60, 75], label)
 
-    fires = [r for r in rows if (r["mean_abs_bp"] or 0) >= primary_thr]
+    fires = [r for r in rows if (r["weighted_abs_bp"] or 0) >= primary_thr]
+    layer2_only = [
+        r
+        for r in rows
+        if (r["max_bucket_abs_bp"] or 0) >= bucket_thr
+        and (r["weighted_abs_bp"] or 0) < primary_thr
+    ]
     n = len(rows)
     print(
         f"\nCalibrated primary fires: {len(fires)}/{n} "
         f"({100 * len(fires) / n:.1f}%) ≈ {12 * len(fires) / n:.2f}/year"
     )
-    print("\nBreaching months (primary):")
-    print(f"  {'as_of':<12} {'mean|Δ|':>8} {'max|Δ|':>8} {'twist':>8} {'node':>6}")
+    print("\nBreaching months (primary T ≥ 35):")
+    print(
+        f"  {'as_of':<12} {'T':>8} {'S':>8} {'bucket':>8} {'which':>8} {'mean|Δ|':>8}"
+    )
     for r in fires:
         print(
-            f"  {r['curr']:<12} {r['mean_abs_bp']:8.1f} "
-            f"{r['max_abs_bp']:8.1f} {r['twist_bp']:8.1f} "
-            f"{r['max_maturity']!s:>6}"
+            f"  {r['curr']:<12} {r['weighted_abs_bp']:8.1f} "
+            f"{r['weighted_signed_bp']:8.1f} "
+            f"{r['max_bucket_abs_bp']:8.1f} "
+            f"{str(r['max_bucket_label'] or ''):>8} "
+            f"{r['mean_abs_bp']:8.1f}"
+        )
+    print(
+        f"\nLayer-2-only months (bucket ≥ {bucket_thr:g}, T < {primary_thr:g}): "
+        f"{len(layer2_only)}"
+    )
+    for r in layer2_only:
+        print(
+            f"  {r['curr']:<12} T={r['weighted_abs_bp']:5.1f} "
+            f"bucket={r['max_bucket_abs_bp']:5.1f} ({r['max_bucket_label']})"
         )
     if args.detail:
         print("\nAll intervals:")
-        print(f"  {'prev':<12} {'curr':<12} {'mean|Δ|':>8} {'max|Δ|':>8} {'twist':>8}")
+        print(
+            f"  {'prev':<12} {'curr':<12} {'T':>8} {'S':>8} "
+            f"{'bucket':>8} {'mean|Δ|':>8}"
+        )
         for r in rows:
             print(
                 f"  {r['prev']:<12} {r['curr']:<12} "
-                f"{r['mean_abs_bp']:8.1f} {r['max_abs_bp']:8.1f} {r['twist_bp']:8.1f}"
+                f"{r['weighted_abs_bp']:8.1f} {r['weighted_signed_bp']:8.1f} "
+                f"{r['max_bucket_abs_bp']:8.1f} {r['mean_abs_bp']:8.1f}"
             )
     return 0
 

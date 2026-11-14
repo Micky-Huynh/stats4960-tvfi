@@ -10,7 +10,7 @@
     "pricing_basis_date": "2026-09-29",
     "source": "Fiera CIA IFRS 17 method workbook (Canada par + Illiquid col J)",
     "source_label": "Fiera monthly + rebuilt J",
-    "last_successful_update": "2026-11-09T00:59:27-05:00",
+    "last_successful_update": "2026-11-11T16:02:04-05:00",
     "timezone_label": "ET",
     "data_availability": "CURRENT",
     "currency": "CAD",
@@ -190,7 +190,7 @@
   ],
   "data_quality": {
     "reference_basis": "Fiera 2026-10-30 \u00b7 pricing 2026-09-29",
-    "last_pipeline_run": "2026-11-09T00:59:27-05:00",
+    "last_pipeline_run": "2026-11-11T16:02:04-05:00",
     "pipeline_run_simulated": false,
     "fiera_publications_used": 2,
     "history_publications": 85,
@@ -199,8 +199,8 @@
   "pipeline_runs": [
     {
       "id": "Fiera-20261030-R01",
-      "started_at": "2026-11-09T00:59:27-05:00",
-      "finished_at": "2026-11-09T00:59:27-05:00",
+      "started_at": "2026-11-11T16:02:04-05:00",
+      "finished_at": "2026-11-11T16:02:04-05:00",
       "status": "ok",
       "steps": [
         "load_fiera_history",
@@ -221,10 +221,12 @@
   "metrics_computed": {
     "abs_mean_change_bp": 16.92,
     "max_abs_change_bp": 31.9,
+    "max_maturity": 15,
     "abs_twist_2s10s_bp": 2.26,
     "primary_threshold_bp": 35.0,
+    "thresholds_active": true,
     "thresholds_calibrated": true,
-    "thresholds_provisional": true
+    "thresholds_provisional": false
   },
   "decision": {
     "measure": "abs_mean_change_bp",
@@ -235,7 +237,7 @@
   },
   "profitability": {
     "status": "not_run",
-    "note": "Blocked on slope_api.py \u2014 no exports/profitability_summary_*.xlsx yet. After analyse_results.py writes an export, re-run pipeline.build_monitor_snapshot to attach it here.",
+    "note": "No exports/profitability_summary_*.xlsx yet. After analyse_results.py writes an export (needs slope_api.py), re-run pipeline.build_monitor_snapshot to attach the path here.",
     "summary": null
   }
 }

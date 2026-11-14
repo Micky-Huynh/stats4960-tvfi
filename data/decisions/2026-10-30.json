@@ -2,37 +2,38 @@
   "decision_id": "Fiera-20261030-R01",
   "as_of": "2026-10-30",
   "pricing_basis_date": "2026-09-29",
-  "measure": "abs_mean_change_bp",
+  "measure": "weighted_abs_change_bp",
   "threshold_bp": 35.0,
-  "value_bp": 16.92,
-  "values": {
-    "abs_mean_change_bp": 16.92,
-    "max_abs_change_bp": 31.9,
-    "abs_twist_2s10s_bp": 2.26
-  },
+  "value_bp": 19.83,
   "metrics": {
+    "weighted_abs_change_bp": 19.83,
+    "weighted_signed_change_bp": -10.94,
+    "max_bucket_abs_change_bp": 36.6,
+    "max_bucket_label": "16-20",
     "abs_mean_change_bp": 16.92,
     "max_abs_change_bp": 31.9,
+    "max_maturity": 15,
     "abs_twist_2s10s_bp": 2.26,
+    "thresholds_active": true,
     "thresholds_calibrated": true,
-    "thresholds_provisional": true
+    "thresholds_provisional": false
   },
   "triggers": [
     {
-      "id": "parallel",
-      "label": "Parallel movement (primary)",
-      "metric": "abs_mean_change_bp",
+      "id": "weighted",
+      "label": "Weighted |\u0394| T (primary)",
+      "metric": "weighted_abs_change_bp",
       "threshold_bp": 35.0,
-      "value_bp": 16.92,
+      "value_bp": 19.83,
       "status": "PASS",
       "role": "primary"
     },
     {
-      "id": "maturity",
-      "label": "Maturity-level movement (diagnostic)",
-      "metric": "max_abs_change_bp",
+      "id": "bucket",
+      "label": "Largest bucket mean |\u0394| (16-20)",
+      "metric": "max_bucket_abs_change_bp",
       "threshold_bp": 75.0,
-      "value_bp": 31.9,
+      "value_bp": 36.6,
       "status": "PASS",
       "role": "diagnostic"
     },
@@ -44,12 +45,21 @@
       "value_bp": 2.26,
       "status": "PASS",
       "role": "diagnostic"
+    },
+    {
+      "id": "signed",
+      "label": "Signed weighted \u0394 S (direction)",
+      "metric": "weighted_signed_change_bp",
+      "threshold_bp": null,
+      "value_bp": -10.94,
+      "status": "NOT_EVALUATED",
+      "role": "diagnostic"
     }
   ],
   "assessment": {
     "overall_status": "NO_TRIGGER",
-    "detail": "Primary rule passed (|mean \u0394| < 35 bp)",
-    "note": "Calibrated curve-only trigger. Diagnostics (max |\u0394|, 2s10s twist) do not fire the Slope profitability test on their own.",
+    "detail": "Primary rule passed (T < 35 bp)",
+    "note": "Calibrated curve-only trigger. Diagnostics (bucket mean |\u0394|, 2s10s twist, signed S) do not fire the Slope profitability test on their own.",
     "outcome": "No Slope profitability test required under calibrated primary rule."
   },
   "overall_status": "NO_TRIGGER",
@@ -63,6 +73,6 @@
     "curve_mode": "rebuilt",
     "source": "Fiera CIA IFRS 17 method workbook (Canada par + Illiquid col J)"
   },
-  "notes": "Generated with pipeline.build_monitor_snapshot; primary measure is calibrated mean |\u0394| (curve-only).",
-  "written_at": "2026-11-09T00:59:27-05:00"
+  "notes": "Generated with pipeline.build_monitor_snapshot; primary measure is calibrated weighted |\u0394| T (curve-only).",
+  "written_at": "2026-11-14T18:52:50-05:00"
 }

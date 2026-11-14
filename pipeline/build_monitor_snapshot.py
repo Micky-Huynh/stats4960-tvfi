@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build monitor_snapshot.json from archived Fiera data and sync it to the dashboard.
+"""Build monitor_snapshot.json from archived Fiera data.
 
 Usage (from the TVFI project root):
 
@@ -11,14 +11,14 @@ Usage (from the TVFI project root):
 Writes:
   data/decisions/YYYY-MM-DD.json
   data/monitor/monitor_snapshot.json
-  Dashboard UI/Group5_Monitoring_Dashboard/monitor_snapshot.json
 
-Snapshot also carries optional schema 1.0 keys `decision` and `profitability`
-(dashboard-safe; ignored by validate/derive until the UI uses them).
+Snapshot also carries optional schema 1.0 keys `decision` and `profitability`.
+Dashboard KPIs prefer `metrics_computed` / `decision` when present.
 
-Then serve the dashboard:
+Serve the dashboard from the TVFI project root (so relative snapshot URL works):
 
-    cd "Dashboard UI/Group5_Monitoring_Dashboard" && python3 -m http.server 8000
+    cd /Users/mickle/Desktop/STATS4960/TVFI && python3 -m http.server 8000
+    # open http://127.0.0.1:8000/Dashboard%20UI/Group5_Monitoring_Dashboard/
 """
 
 from __future__ import annotations
@@ -33,7 +33,8 @@ _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from pipeline.snapshot import build_snapshot, write_snapshot  # noqa: E402
+from pipeline.snapshot import build_snapshot  # noqa: E402
+from pipeline.snapshot_io import write_snapshot  # noqa: E402
 
 
 def main() -> int:
@@ -82,7 +83,7 @@ def main() -> int:
     mode = "rebuilt" if args.rebuilt else "fixture_archive"
     snapshot = build_snapshot(
         mode=mode,
-        use_provisional_thresholds=not args.no_thresholds,
+        use_calibrated_thresholds=not args.no_thresholds,
         rebuilt_as_of=args.as_of,
         rf=args.rf,
         boc_snapshot=args.boc_snapshot,
@@ -105,9 +106,11 @@ def main() -> int:
     m = snapshot.get("metrics_computed", {})
     print(
         "metrics bp:",
-        f"mean_abs={m.get('abs_mean_change_bp')}",
-        f"max_abs={m.get('max_abs_change_bp')}",
+        f"T={m.get('weighted_abs_change_bp')}",
+        f"S={m.get('weighted_signed_change_bp')}",
+        f"bucket={m.get('max_bucket_abs_change_bp')}",
         f"twist={m.get('abs_twist_2s10s_bp')}",
+        f"mean_abs={m.get('abs_mean_change_bp')}",
     )
     if args.print:
         print(json.dumps(snapshot, indent=2))

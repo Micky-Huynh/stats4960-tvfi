@@ -11,18 +11,21 @@
  * Decision log + TVFI's Profitability workbook and served by a Cloudflare Worker.
  * Only CONFIG.snapshotUrl needs to change; the schema and rendering stay the same.
  *
- * The dashboard derives display metrics (mean shift, largest move, 2s10s twist) from the
- * curves using the same delta as the pipeline trigger: implied − pricing (bp).
- * Canada-par current − pricing is kept as labeled market context only.
+ * Summary KPIs prefer snapshot.metrics_computed / decision when present (Python owns
+ * mean |Δ|, max |Δ|, twist). Per-maturity change arrays are still derived here for
+ * charts. Canada-par current − pricing is market context only.
  * Trigger statuses are taken as-is from the snapshot — rule evaluation lives upstream
  * in the Trigger / Decision log step, not here.
  */
 'use strict';
 
 const CONFIG = {
+  // Pipeline writes once to data/monitor/. Serve from the TVFI project root:
+  //   cd /Users/mickle/Desktop/STATS4960/TVFI && python3 -m http.server 8000
+  //   open http://127.0.0.1:8000/Dashboard%20UI/Group5_Monitoring_Dashboard/
   // FUTURE (Cloudflare): replace with the Worker endpoint, e.g.
   //   'https://<worker-name>.<account>.workers.dev/monitor_snapshot.json'
-  snapshotUrl: 'monitor_snapshot.json',
+  snapshotUrl: '../../data/monitor/monitor_snapshot.json',
 };
 
 // Keep in sync with monitor_snapshot.json. Placeholder values only — no real TVFI data.
@@ -70,9 +73,10 @@ const PLACEHOLDER_SNAPSHOT = {
     outcome: 'No trigger conclusion. All observations are synthetic and every threshold is "To be calibrated". Data availability alone does not establish a market trigger or a pass.',
   },
   triggers: [
-    { id: 'parallel', label: 'Parallel movement', metric: 'abs_mean_change_bp', threshold_bp: null, status: 'NOT_EVALUATED' },
-    { id: 'maturity', label: 'Maturity-level movement', metric: 'max_abs_change_bp', threshold_bp: null, status: 'NOT_EVALUATED' },
+    { id: 'weighted', label: 'Weighted |Δ| T', metric: 'weighted_abs_change_bp', threshold_bp: null, status: 'NOT_EVALUATED' },
+    { id: 'bucket', label: 'Largest bucket mean |Δ|', metric: 'max_bucket_abs_change_bp', threshold_bp: null, status: 'NOT_EVALUATED' },
     { id: 'twist', label: 'Curve shape / twist', metric: 'abs_twist_2s10s_bp', threshold_bp: null, status: 'NOT_EVALUATED' },
+    { id: 'signed', label: 'Signed weighted Δ S', metric: 'weighted_signed_change_bp', threshold_bp: null, status: 'NOT_EVALUATED' },
   ],
   history: [
     { date: '2026-10-14', mean_shift_bp: -3.1, flagged: false },
@@ -105,17 +109,42 @@ const SERIES = [
 
 // Metrics a trigger can reference via its `metric` key.
 const METRICS = {
+  weighted_abs_change_bp: {
+    label: 'weighted |Δ| T',
+    text: (d) => (isNum(d.weightedAbs) ? `${Math.abs(d.weightedAbs).toFixed(1)} bp` : '—'),
+  },
+  weighted_signed_change_bp: {
+    label: 'signed weighted Δ S',
+    text: (d) => (isNum(d.weightedSigned) ? `${d.weightedSigned.toFixed(1)} bp` : '—'),
+  },
+  max_bucket_abs_change_bp: {
+    label: 'max bucket |Δ|',
+    text: (d) => {
+      if (!isNum(d.maxBucketAbs)) return '—';
+      const label = d.maxBucketLabel ? ` · ${d.maxBucketLabel}` : '';
+      return `${Math.abs(d.maxBucketAbs).toFixed(0)} bp${label}`;
+    },
+  },
   abs_mean_change_bp: {
     label: '|mean Δ|',
-    text: (d) => (isNum(d.mean) ? `${Math.abs(d.mean).toFixed(1)} bp` : '—'),
+    text: (d) => (isNum(d.meanAbs) ? `${Math.abs(d.meanAbs).toFixed(1)} bp` : '—'),
   },
   max_abs_change_bp: {
     label: 'max |Δ|',
-    text: (d, s) => (d.maxIdx < 0 ? '—' : `${Math.abs(d.change[d.maxIdx]).toFixed(0)} bp · ${tenor(s.maturities[d.maxIdx])}`),
+    text: (d, s) => {
+      if (isNum(d.maxAbs)) {
+        const node = d.maxIdx >= 0 ? ` · ${tenor(s.maturities[d.maxIdx])}` : '';
+        return `${Math.abs(d.maxAbs).toFixed(0)} bp${node}`;
+      }
+      return d.maxIdx < 0 ? '—' : `${Math.abs(d.change[d.maxIdx]).toFixed(0)} bp · ${tenor(s.maturities[d.maxIdx])}`;
+    },
   },
   abs_twist_2s10s_bp: {
     label: '|Δ 2s10s|',
-    text: (d) => (isNum(d.twist) ? `${Math.abs(d.twist).toFixed(1)} bp` : '—'),
+    text: (d) => {
+      const v = isNum(d.twistAbs) ? d.twistAbs : d.twist;
+      return isNum(v) ? `${Math.abs(v).toFixed(1)} bp` : '—';
+    },
   },
 };
 
@@ -237,7 +266,7 @@ function derive(s) {
   const [P, C, I] = SERIES.map((se) => s.curves[se.key].yields);
   const diff = (a, b, i) => (isNum(a[i]) && isNum(b[i]) ? round6((a[i] - b[i]) * 100) : null);
 
-  // Trigger measure (matches pipeline/snapshot.py): implied − pricing.
+  // Per-maturity deltas for charts (implied − pricing). Summary KPIs prefer metrics_computed.
   const change = M.map((_, i) => diff(I, P, i));
   // Market context only: Canada par current − pricing (not used for KPIs / triggers).
   const marketDelta = M.map((_, i) => diff(C, P, i));
@@ -247,6 +276,10 @@ function derive(s) {
     const v = arr.filter(isNum);
     return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
   };
+  const meanAbsLocal = (() => {
+    const v = change.filter(isNum).map((x) => Math.abs(x));
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  })();
 
   let maxIdx = -1;
   change.forEach((v, i) => {
@@ -259,23 +292,65 @@ function derive(s) {
   const slopeP = slope(P);
   const slopeC = slope(C);
   const slopeI = slope(I);
+  const twistLocal = isNum(slopeP) && isNum(slopeI) ? round6(slopeI - slopeP) : null;
 
   const complete = M.map((_, i) => SERIES.every((se) => isNum(s.curves[se.key].yields[i])));
+
+  // Prefer Python-owned summary metrics when the snapshot carries them.
+  const mc = s.metrics_computed || {};
+  const decision = s.decision || {};
+  const weightedAbs = isNum(mc.weighted_abs_change_bp)
+    ? mc.weighted_abs_change_bp
+    : (isNum(decision.value_bp) && decision.measure === 'weighted_abs_change_bp'
+      ? decision.value_bp
+      : null);
+  const weightedSigned = isNum(mc.weighted_signed_change_bp)
+    ? mc.weighted_signed_change_bp
+    : null;
+  const maxBucketAbs = isNum(mc.max_bucket_abs_change_bp)
+    ? mc.max_bucket_abs_change_bp
+    : null;
+  const maxBucketLabel = mc.max_bucket_label || null;
+  const meanAbs = isNum(mc.abs_mean_change_bp)
+    ? mc.abs_mean_change_bp
+    : (isNum(decision.value_bp) && decision.measure === 'abs_mean_change_bp'
+      ? decision.value_bp
+      : meanAbsLocal);
+  const maxAbs = isNum(mc.max_abs_change_bp)
+    ? mc.max_abs_change_bp
+    : (maxIdx >= 0 ? Math.abs(change[maxIdx]) : null);
+  // Prefer pipeline max_maturity so abs + tenor stay aligned even if JS change[] drifts.
+  const maxIdxPipeline = (() => {
+    if (!isNum(mc.max_maturity)) return maxIdx;
+    const i = M.indexOf(mc.max_maturity);
+    return i >= 0 ? i : maxIdx;
+  })();
+  const twistAbs = isNum(mc.abs_twist_2s10s_bp)
+    ? mc.abs_twist_2s10s_bp
+    : (isNum(twistLocal) ? Math.abs(twistLocal) : null);
 
   return {
     change,
     marketDelta,
     impliedDelta,
-    mean: avg(change),
+    mean: avg(change), // signed mean (formula cards / market context)
+    weightedAbs,       // primary trigger measure (weighted |Δ| T)
+    weightedSigned,    // direction diagnostic S
+    maxBucketAbs,
+    maxBucketLabel,
+    meanAbs,           // equal-weight display mean |Δ| (legacy / chart)
     meanMarket: avg(marketDelta),
     meanImplied: avg(impliedDelta),
     nValid: change.filter(isNum).length,
-    maxIdx,
+    maxIdx: maxIdxPipeline,
+    maxAbs,
     slopeP,
     slopeC,
     slopeI,
-    // Equivalent to (Δ10y − Δ2y) on implied − pricing, matching pipeline twist_2s10s_bp.
-    twist: isNum(slopeP) && isNum(slopeI) ? round6(slopeI - slopeP) : null,
+    // Signed twist for steepening/flattening labels; abs from metrics_computed when present.
+    twist: twistLocal,
+    twistAbs,
+    metricsFromPipeline: isNum(mc.weighted_abs_change_bp) || isNum(mc.abs_mean_change_bp),
     complete,
     missing: M.filter((_, i) => !complete[i]),
     ordered: M.every((m, i) => i === 0 || m > M[i - 1]),
@@ -393,21 +468,42 @@ function renderKpis() {
   const d = state.d;
   const bpUnit = '<small>bp</small>';
 
-  $('#kpiParallel').innerHTML = `${fmtBp(d.mean, 1)}${bpUnit}`;
-  $('#kpiParallelFoot').textContent = `Implied − pricing across ${d.nValid} nodes; not a fitted parallel shift.`;
+  // Prefer weighted T (primary) when pipeline provides it; else equal-weight mean.
+  const parallelShow = isNum(d.weightedAbs) ? d.weightedAbs : d.meanAbs;
+  $('#kpiParallel').innerHTML = `${fmtBp(parallelShow, 1)}${bpUnit}`;
+  if (isNum(d.weightedAbs)) {
+    const sPart = isNum(d.weightedSigned) ? ` · S ${fmtBp(d.weightedSigned, 1)} bp` : '';
+    $('#kpiParallelFoot').textContent =
+      `Weighted |Δ| T (years 1–30)${sPart}`;
+  } else {
+    $('#kpiParallelFoot').textContent = d.metricsFromPipeline
+      ? `Mean |implied − pricing| from metrics_computed · ${d.nValid} nodes`
+      : `Mean |implied − pricing| across ${d.nValid} nodes; not a fitted parallel shift.`;
+  }
 
-  if (d.maxIdx >= 0) {
-    $('#kpiLargest').innerHTML = `${fmtBp(d.change[d.maxIdx])}${bpUnit}`;
+  if (isNum(d.maxBucketAbs)) {
+    $('#kpiLargest').innerHTML = `${fmtBp(d.maxBucketAbs)}${bpUnit}`;
+    $('#kpiLargestLine').textContent = d.maxBucketLabel
+      ? `Largest bucket mean |Δ| · ${d.maxBucketLabel}y`
+      : 'Largest bucket mean |Δ| (from metrics_computed)';
+  } else if (isNum(d.maxAbs) && d.maxIdx >= 0) {
+    const signed = isNum(d.change[d.maxIdx]) ? d.change[d.maxIdx] : d.maxAbs;
+    $('#kpiLargest').innerHTML = `${fmtBp(signed)}${bpUnit}`;
     $('#kpiLargestLine').textContent = `${tenorLong(s.maturities[d.maxIdx])} maturity · largest |implied − pricing|`;
+  } else if (isNum(d.maxAbs)) {
+    $('#kpiLargest').innerHTML = `${fmtBp(d.maxAbs)}${bpUnit}`;
+    $('#kpiLargestLine').textContent = 'Largest |implied − pricing| (from metrics_computed)';
   } else {
     $('#kpiLargest').innerHTML = `—${bpUnit}`;
     $('#kpiLargestLine').textContent = 'No complete maturity nodes';
   }
 
-  $('#kpiTwist').innerHTML = `${fmtBp(d.twist, 1)}${bpUnit}`;
+  // Show signed twist for direction; magnitude prefers metrics_computed abs when present.
+  const twistShow = isNum(d.twist) ? d.twist : d.twistAbs;
+  $('#kpiTwist').innerHTML = `${fmtBp(twistShow, 1)}${bpUnit}`;
   $('#kpiTwistLine').textContent = isNum(d.twist)
     ? `2s10s ${d.twist >= 0 ? 'steepening' : 'flattening'} · ${d.slopeP.toFixed(0)} → ${d.slopeI.toFixed(0)} bp`
-    : '2y or 10y node unavailable';
+    : (isNum(d.twistAbs) ? `|2s10s| from metrics_computed` : '2y or 10y node unavailable');
 
   const a = s.assessment || {};
   const o = OVERALL[a.overall_status] || { label: a.overall_status || '—', cls: 'neutral' };
@@ -659,7 +755,15 @@ function renderHistory() {
   const host = $('#historyChart');
   host.innerHTML = '';
 
-  $('#historyDescSuffix').textContent = s.is_illustrative ? ' · all history is synthetic' : '';
+  if (s.is_illustrative) {
+    $('#historyDescSuffix').textContent = ' · all history is synthetic';
+  } else if (s.notes && s.notes.history_reading) {
+    $('#historyDescSuffix').textContent = ' · archived Fiera only';
+  } else if (s.data_quality && s.data_quality.history_basis === 'archive_consecutive_column_j') {
+    $('#historyDescSuffix').textContent = ' · archived Fiera only';
+  } else {
+    $('#historyDescSuffix').textContent = '';
+  }
   $('#historyPeriod').textContent = h.length
     ? `${fmtShortDate(h[0].date)}–${fmtDate(h[h.length - 1].date)} · ${h.length} ${s.is_illustrative ? 'illustrative ' : ''}observations`
     : '';
@@ -726,10 +830,12 @@ function renderMaturity() {
   $('#thCurrent').innerHTML = `${esc(s.curves.current_basis.label || 'Current Basis Curve')}<br>${esc(fmtDate(s.curves.current_basis.as_of))} · %`;
   $('#thImplied').innerHTML = `${esc(s.curves.implied.label || 'Updated / Implied Curve')}<br>${esc(fmtDate(s.curves.implied.as_of))} · %`;
 
-  const matTrigger = (s.triggers || []).find((t) => t.metric === 'max_abs_change_bp');
+  const matTrigger = (s.triggers || []).find(
+    (t) => t.metric === 'max_bucket_abs_change_bp' || t.metric === 'max_abs_change_bp'
+  );
   const matNote = !matTrigger || matTrigger.status === 'NOT_EVALUATED'
-    ? 'No maturity-level trigger rule has been evaluated.'
-    : `Maturity-level rule: ${(TRIGGER_STATUS[matTrigger.status] || {}).label || matTrigger.status}`;
+    ? 'No bucket / maturity trigger rule has been evaluated.'
+    : `Bucket / maturity rule: ${(TRIGGER_STATUS[matTrigger.status] || {}).label || matTrigger.status}`;
   $('#selStrip').innerHTML = `
     <div><span class="k">Selected maturity</span><div class="big">${si >= 0 ? `${M[si]} years` : '—'}</div></div>
     <div><span class="k">${esc(s.curves.implied.label || 'Updated / Implied Curve')}</span><div class="big mono">${fmtPct(I[si])}</div></div>
@@ -750,15 +856,17 @@ function renderMaturity() {
     </tr>`).join('');
   body.querySelectorAll('tr').forEach((tr) => tr.addEventListener('click', () => selectMaturity(Number(tr.dataset.m))));
 
-  const maxTxt = d.maxIdx >= 0 ? `max |implied − pricing| ${Math.abs(d.change[d.maxIdx]).toFixed(0)} bp at ${tenor(M[d.maxIdx])}` : 'max |Δ| —';
-  $('#matFoot').textContent = `${M.length} nodes · ${d.missing.length} missing · mean implied − pricing ${fmtBp(d.mean, 1)} bp · ${maxTxt}`;
+  const maxTxt = isNum(d.maxAbs)
+    ? `max |implied − pricing| ${Math.abs(d.maxAbs).toFixed(0)} bp${d.maxIdx >= 0 ? ` at ${tenor(M[d.maxIdx])}` : ''}`
+    : 'max |Δ| —';
+  $('#matFoot').textContent = `${M.length} nodes · ${d.missing.length} missing · mean |implied − pricing| ${fmtBp(d.meanAbs, 1)} bp · ${maxTxt}`;
   $('#matFine').textContent = s.is_illustrative
     ? 'ILLUSTRATIVE DATA · Not actual TVFI results. Completeness and finite-value checks describe only this placeholder dataset; they are not production validation. All maturities remain unassessed until rules are calibrated and validated.'
     : '';
 
   // Formula cards — show the arithmetic with this snapshot's numbers.
   const i2 = M.indexOf(2), i10 = M.indexOf(10);
-  $('#fParallel').textContent = `Σ(implied − pricing) × 100 / ${d.nValid} = ${fmtBp(d.mean, 1)} bp`;
+  $('#fParallel').textContent = `Σ|implied − pricing| × 100 / ${d.nValid} = ${fmtBp(d.meanAbs, 1)} bp`;
   $('#fTwist').textContent = isNum(d.twist)
     ? `[(${I[i10].toFixed(2)} − ${I[i2].toFixed(2)}) − (${P[i10].toFixed(2)} − ${P[i2].toFixed(2)})] × 100 = ${fmtBp(d.twist, 1)} bp`
     : '[(I10 − I2) − (P10 − P2)] × 100 = —';

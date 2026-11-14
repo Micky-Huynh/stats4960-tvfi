@@ -5,6 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from . import metrics as curve_metrics
+
+# Re-export weight table for callers / back-tests.
+WEIGHT_BUCKETS = curve_metrics.WEIGHT_BUCKETS
+TRIGGER_YEARS = curve_metrics.TRIGGER_YEARS
+
 
 @dataclass
 class TriggerRule:
@@ -34,49 +40,57 @@ class TriggerRule:
 
 
 # Calibrated on Fiera consecutive monthly col-J curves (2019-10 → 2026-10).
-# Primary: mean |Δ| across DISPLAY_MATURITIES ≥ 35 bp → start Slope profitability test.
+# Primary: liability-weighted T = Σ w_t·|Δr_t| over years 1..30 ≥ 35 bp.
 # See docs/memos/trigger-calibration.md.
 CALIBRATED = {
-    "parallel": 35.0,  # primary: |mean Δ| bp
+    "weighted": 35.0,  # primary: T bp
     # Diagnostics only (do not drive overall_status):
-    "maturity": 75.0,  # max |Δ| bp — single-node / long-end noise filter
+    "bucket": 75.0,  # max per-bucket mean |Δ| bp
     "twist": 40.0,  # |Δ 2s10s| bp — shape diagnostic
+    # Legacy aliases (equal-weight era keys):
+    "parallel": 35.0,
+    "maturity": 75.0,
 }
 
 # Back-compat alias used by snapshot history flagging.
 PROVISIONAL = CALIBRATED
 
-PRIMARY_RULE_ID = "parallel"
+PRIMARY_RULE_ID = "weighted"
 
 
 def evaluate(
-    mean_abs_bp: Optional[float],
-    max_abs_bp: Optional[float],
+    weighted_abs_bp: Optional[float],
+    max_bucket_abs_bp: Optional[float],
     twist_bp: Optional[float],
+    signed_bp: Optional[float] = None,
     *,
-    use_provisional: bool = True,
+    max_bucket_label: Optional[str] = None,
+    use_calibrated: bool = True,
+    use_provisional: Optional[bool] = None,
 ) -> List[TriggerRule]:
-    """Evaluate primary + diagnostic rules.
-
-    ``use_provisional`` kept for CLI flag compatibility; when False, thresholds
-    are null (UNASSESSED). When True, use calibrated thresholds.
-    """
-    thr = CALIBRATED if use_provisional else {k: None for k in CALIBRATED}
+    """Evaluate primary + diagnostic rules. Primary measure is weighted T."""
+    active = use_calibrated if use_provisional is None else bool(use_provisional)
+    thr = CALIBRATED if active else {k: None for k in ("weighted", "bucket", "twist")}
+    bucket_label = (
+        f"Largest bucket mean |Δ| ({max_bucket_label})"
+        if max_bucket_label
+        else "Largest bucket mean |Δ| (diagnostic)"
+    )
     rules = [
         TriggerRule(
-            "parallel",
-            "Parallel movement (primary)",
-            "abs_mean_change_bp",
-            thr["parallel"],
-            mean_abs_bp,
+            "weighted",
+            "Weighted |Δ| T (primary)",
+            "weighted_abs_change_bp",
+            thr["weighted"],
+            weighted_abs_bp,
             role="primary",
         ),
         TriggerRule(
-            "maturity",
-            "Maturity-level movement (diagnostic)",
-            "max_abs_change_bp",
-            thr["maturity"],
-            None if max_abs_bp is None else abs(max_abs_bp),
+            "bucket",
+            bucket_label,
+            "max_bucket_abs_change_bp",
+            thr["bucket"],
+            None if max_bucket_abs_bp is None else abs(max_bucket_abs_bp),
             role="diagnostic",
         ),
         TriggerRule(
@@ -85,6 +99,14 @@ def evaluate(
             "abs_twist_2s10s_bp",
             thr["twist"],
             None if twist_bp is None else abs(twist_bp),
+            role="diagnostic",
+        ),
+        TriggerRule(
+            "signed",
+            "Signed weighted Δ S (direction)",
+            "weighted_signed_change_bp",
+            None,  # no threshold — display only
+            signed_bp,
             role="diagnostic",
         ),
     ]
@@ -107,7 +129,7 @@ def overall(rules: List[TriggerRule]) -> Dict[str, str]:
         return {
             "overall_status": "UNASSESSED",
             "detail": "Primary rule not evaluated",
-            "note": "Threshold missing or mean-abs metric unavailable.",
+            "note": "Threshold missing or weighted-T metric unavailable.",
             "outcome": "No trigger conclusion.",
         }
     if primary.status == "BREACH":
@@ -115,23 +137,23 @@ def overall(rules: List[TriggerRule]) -> Dict[str, str]:
             "overall_status": "TRIGGERED",
             "detail": (
                 f"Primary threshold breach: {primary.label} "
-                f"(|mean Δ| ≥ {primary.threshold_bp:g} bp)"
+                f"(T ≥ {primary.threshold_bp:g} bp)"
             ),
             "note": (
-                "Calibrated curve-only trigger (mean absolute change across display "
-                "maturities). A breach means: run a Slope profitability test "
-                "(VoNB / Net CSM / CaPM). Maturity/twist rules are diagnostics only."
+                "Calibrated curve-only trigger (liability-weighted absolute change "
+                "T over years 1–30). A breach means: run a Slope profitability test "
+                "(VoNB / Net CSM / CaPM). Bucket/twist/signed rules are diagnostics only."
             ),
             "outcome": f"Triggered on: {primary.label}",
         }
     return {
         "overall_status": "NO_TRIGGER",
         "detail": (
-            f"Primary rule passed (|mean Δ| < {primary.threshold_bp:g} bp)"
+            f"Primary rule passed (T < {primary.threshold_bp:g} bp)"
         ),
         "note": (
-            "Calibrated curve-only trigger. Diagnostics (max |Δ|, 2s10s twist) "
-            "do not fire the Slope profitability test on their own."
+            "Calibrated curve-only trigger. Diagnostics (bucket mean |Δ|, 2s10s twist, "
+            "signed S) do not fire the Slope profitability test on their own."
         ),
         "outcome": "No Slope profitability test required under calibrated primary rule.",
     }
