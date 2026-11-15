@@ -111,7 +111,7 @@ const SERIES = [
 const METRICS = {
   weighted_abs_change_bp: {
     label: 'weighted |Δ| T',
-    text: (d) => (isNum(d.weightedAbs) ? `${Math.abs(d.weightedAbs).toFixed(1)} bp` : '—'),
+    text: (d) => (isNum(d.weightedAbs) ? `${fmtAbsBp(d.weightedAbs, 1)} bp` : '—'),
   },
   weighted_signed_change_bp: {
     label: 'signed weighted Δ S',
@@ -202,7 +202,25 @@ function fmtBp(v, dp = 0) {
   if (Number(s) === 0) return s;
   return (v > 0 ? '+' : '−') + s;
 }
+/** Absolute bp (no sign) — for T, bucket mean |Δ|, and other unsigned measures. */
+function fmtAbsBp(v, dp = 0) {
+  if (!isNum(v)) return '—';
+  return Math.abs(v).toFixed(dp);
+}
+/** Last-resort fallback for old placeholders that lack pipeline threshold/flagged. */
+const HISTORY_PRIMARY_THR_BP_FALLBACK = 35;
 const fmtPct = (v) => (isNum(v) ? `${v.toFixed(2)}%` : '—');
+
+/** Pipeline is the sole write-side source for primary threshold (CALIBRATED.weighted). */
+function primaryThresholdBp(snap) {
+  const mc = (snap && snap.metrics_computed) || {};
+  if (isNum(mc.primary_threshold_bp)) return mc.primary_threshold_bp;
+  const primary = ((snap && snap.triggers) || []).find(
+    (t) => t.role === 'primary' || t.id === 'weighted' || t.metric === 'weighted_abs_change_bp'
+  );
+  if (primary && isNum(primary.threshold_bp)) return primary.threshold_bp;
+  return HISTORY_PRIMARY_THR_BP_FALLBACK;
+}
 const tenor = (m) => `${m}y`;
 const tenorLong = (m) => (m < 1 ? `${Math.round(m * 12)}-month` : `${m}-year`);
 const round6 = (v) => Math.round(v * 1e6) / 1e6;
@@ -367,8 +385,9 @@ function applySnapshot(snap, source) {
   state.d = derive(snap);
   state.source = source;
   state.hover = null;
-  if (!snap.maturities.includes(state.selected)) {
-    state.selected = snap.maturities.includes(10) ? 10 : snap.maturities[Math.max(state.d.maxIdx, 0)];
+  // Do not auto-select a maturity on load (avoids an open tooltip covering the legend).
+  if (state.selected != null && !snap.maturities.includes(state.selected)) {
+    state.selected = null;
   }
   render();
   return true;
@@ -449,11 +468,18 @@ function renderHeader() {
   const avail = m.data_availability || 'UNKNOWN';
   const availEl = $('#mAvail');
   availEl.className = `dot-status ${avail === 'CURRENT' ? 'ok' : 'warn'}`;
-  availEl.textContent = `${avail}${illus ? ' · demo' : ''}`;
+  let availTxt = avail;
+  if (avail === 'LAGGED' && m.rf_as_of) {
+    // Prefer obs−RF gap (product age). Never present rf_publish_lag_days as that gap.
+    const gap = m.obs_rf_calendar_gap_days;
+    const gapPart = isNum(gap) ? ` · obs−RF ${gap}d` : '';
+    availTxt = `LAGGED · RF ${fmtDate(m.rf_as_of)}${gapPart}`;
+  }
+  availEl.textContent = `${availTxt}${illus ? ' · demo' : ''}`;
 
   $('#selObs').innerHTML = `<option>${esc(fmtDate(m.observation_date))}</option>`;
   $('#toolbarNote').textContent =
-    `${m.currency || ''} ${m.yield_type || ''} yields · ${s.maturities.length} maturity nodes · 1 bp = 0.01%`.trim();
+    `${m.currency || ''} ${m.yield_type || ''} yields · ${s.maturities.length} display nodes (T uses years 1–30) · 1 bp = 0.01%`.trim();
 
   const a = s.assessment || {};
   $('#tabsNote').textContent = a.overall_status === 'UNASSESSED' || !a.overall_status
@@ -470,11 +496,11 @@ function renderKpis() {
 
   // Prefer weighted T (primary) when pipeline provides it; else equal-weight mean.
   const parallelShow = isNum(d.weightedAbs) ? d.weightedAbs : d.meanAbs;
-  $('#kpiParallel').innerHTML = `${fmtBp(parallelShow, 1)}${bpUnit}`;
+  $('#kpiParallel').innerHTML = `${fmtAbsBp(parallelShow, 1)}${bpUnit}`;
   if (isNum(d.weightedAbs)) {
     const sPart = isNum(d.weightedSigned) ? ` · S ${fmtBp(d.weightedSigned, 1)} bp` : '';
     $('#kpiParallelFoot').textContent =
-      `Weighted |Δ| T (years 1–30)${sPart}`;
+      `Primary measure · years 1–30${sPart}`;
   } else {
     $('#kpiParallelFoot').textContent = d.metricsFromPipeline
       ? `Mean |implied − pricing| from metrics_computed · ${d.nValid} nodes`
@@ -482,16 +508,15 @@ function renderKpis() {
   }
 
   if (isNum(d.maxBucketAbs)) {
-    $('#kpiLargest').innerHTML = `${fmtBp(d.maxBucketAbs)}${bpUnit}`;
+    $('#kpiLargest').innerHTML = `${fmtAbsBp(d.maxBucketAbs)}${bpUnit}`;
     $('#kpiLargestLine').textContent = d.maxBucketLabel
       ? `Largest bucket mean |Δ| · ${d.maxBucketLabel}y`
       : 'Largest bucket mean |Δ| (from metrics_computed)';
   } else if (isNum(d.maxAbs) && d.maxIdx >= 0) {
-    const signed = isNum(d.change[d.maxIdx]) ? d.change[d.maxIdx] : d.maxAbs;
-    $('#kpiLargest').innerHTML = `${fmtBp(signed)}${bpUnit}`;
+    $('#kpiLargest').innerHTML = `${fmtAbsBp(d.maxAbs)}${bpUnit}`;
     $('#kpiLargestLine').textContent = `${tenorLong(s.maturities[d.maxIdx])} maturity · largest |implied − pricing|`;
   } else if (isNum(d.maxAbs)) {
-    $('#kpiLargest').innerHTML = `${fmtBp(d.maxAbs)}${bpUnit}`;
+    $('#kpiLargest').innerHTML = `${fmtAbsBp(d.maxAbs)}${bpUnit}`;
     $('#kpiLargestLine').textContent = 'Largest |implied − pricing| (from metrics_computed)';
   } else {
     $('#kpiLargest').innerHTML = `—${bpUnit}`;
@@ -610,13 +635,18 @@ function renderCurveChart() {
       if (isNum(v)) svgEl('circle', { cx: x(m), cy: y(v), r: 4.5, class: `dot hl ${se.cls}` }, hoverG);
     }
 
+    // Tooltip only while hovering or after an explicit selection click.
+    if (state.hover == null && state.selected == null) {
+      tip.hidden = true;
+      return;
+    }
     const row = (label, v) => `<div class="tt-row">${esc(label)}<b>${fmtPct(v)}</b></div>`;
     const isSel = m === state.selected;
     tip.innerHTML =
       `<div class="tt-head"><b>${tenorLong(m)} maturity</b><span>${isSel ? 'Selected' : 'Click to select'}</span></div>` +
       SERIES.map((se) => row(s.curves[se.key].label || se.label, s.curves[se.key].yields[i])).join('') +
-      `<div class="tt-row total">Implied − pricing (trigger)<b>${fmtBp(state.d.change[i])} bp</b></div>` +
-      `<div class="tt-row">Current − pricing (market)<b>${fmtBp(state.d.marketDelta[i])} bp</b></div>`;
+      `<div class="tt-row total">Implied − pricing (display)<b>${fmtBp(state.d.change[i])} bp</b></div>` +
+      `<div class="tt-row">Canada par − col J (basis gap)<b>${fmtBp(state.d.marketDelta[i])} bp</b></div>`;
 
     const anchor = s.curves.implied.yields[i];
     const xPct = (x(m) / W) * 100;
@@ -644,7 +674,7 @@ function renderBarChart() {
   const M = s.maturities;
   const idx = visibleIdx();
 
-  $('#barDesc').textContent = `Implied − Pricing (trigger delta)${s.is_illustrative ? ' · illustrative' : ''}`;
+  $('#barDesc').textContent = `Implied − Pricing (display nodes)${s.is_illustrative ? ' · illustrative' : ''}`;
   host.innerHTML = '';
   if (!idx.length) {
     host.innerHTML = '<p class="empty">No maturity nodes in this range.</p>';
@@ -709,8 +739,13 @@ function renderTriggers() {
 
   $('#triggerList').innerHTML = (s.triggers || []).map((t) => {
     const metric = METRICS[t.metric];
-    const st = TRIGGER_STATUS[t.status] || { label: t.status || '—', cls: '' };
-    const threshold = isNum(t.threshold_bp) ? `${t.threshold_bp} bp` : 'To be calibrated';
+    const isSigned = t.id === 'signed' || t.metric === 'weighted_signed_change_bp';
+    const st = isSigned
+      ? { label: 'Direction only', cls: '' }
+      : (TRIGGER_STATUS[t.status] || { label: t.status || '—', cls: '' });
+    const threshold = isSigned
+      ? 'No threshold'
+      : (isNum(t.threshold_bp) ? `${t.threshold_bp} bp` : 'To be calibrated');
     return `
       <div class="trigger">
         <div class="trigger-head"><span>${esc(t.label)}</span><span class="pill ${st.cls}">${esc(st.label)}</span></div>
@@ -749,6 +784,23 @@ function renderQuality() {
   $('#pipelineSub').textContent = runs.length ? `${runs.length} run${runs.length === 1 ? '' : 's'} recorded` : 'Available after pipeline integration';
 }
 
+/** Prefer weighted T for history chart; fall back to signed equal-weight mean. */
+function historyValue(p) {
+  if (isNum(p.weighted_abs_bp)) return p.weighted_abs_bp;
+  if (isNum(p.mean_shift_bp)) return p.mean_shift_bp;
+  return null;
+}
+
+/**
+ * Trust pipeline ``flagged`` first (single ownership with snapshot_history).
+ * Recompute from T only for legacy placeholders that lack ``flagged``.
+ */
+function historyMarked(p, thr) {
+  if (typeof p.flagged === 'boolean') return p.flagged;
+  if (isNum(p.weighted_abs_bp) && isNum(thr)) return p.weighted_abs_bp >= thr;
+  return false;
+}
+
 function renderHistory() {
   const s = state.snap;
   const h = s.history || [];
@@ -757,6 +809,9 @@ function renderHistory() {
 
   if (s.is_illustrative) {
     $('#historyDescSuffix').textContent = ' · all history is synthetic';
+  } else if (s.meta && s.meta.curve_mode === 'rebuilt') {
+    $('#historyDescSuffix').textContent =
+      ' · archive Fiera MoM (live KPI T uses rebuilt implied — may differ)';
   } else if (s.notes && s.notes.history_reading) {
     $('#historyDescSuffix').textContent = ' · archived Fiera only';
   } else if (s.data_quality && s.data_quality.history_basis === 'archive_consecutive_column_j') {
@@ -768,45 +823,60 @@ function renderHistory() {
     ? `${fmtShortDate(h[0].date)}–${fmtDate(h[h.length - 1].date)} · ${h.length} ${s.is_illustrative ? 'illustrative ' : ''}observations`
     : '';
 
-  const flagged = h.filter((p) => p.flagged);
-  $('#eventsCount').textContent = `${flagged.length} / ${h.length}`;
-  $('#eventsList').innerHTML = flagged
-    .map((p) => `<li>${esc(fmtShortDate(p.date))}: ${esc(fmtBp(p.mean_shift_bp, 1))} bp${p.note ? ` · ${esc(p.note)}` : ''}</li>`)
+  const thr = primaryThresholdBp(s);
+  const marked = h.filter((p) => historyMarked(p, thr));
+  $('#eventsCount').textContent = `${marked.length} / ${h.length}`;
+  $('#eventsList').innerHTML = marked
+    .map((p) => {
+      const v = historyValue(p);
+      // Prefer pipeline note (already says "archive marker…"); avoid duplicating the phrase.
+      return `<li>${esc(fmtShortDate(p.date))}: ${esc(fmtAbsBp(v, 1))} bp${p.note ? ` · ${esc(p.note)}` : ''}</li>`;
+    })
     .join('');
 
-  const pts = h.filter((p) => isNum(p.mean_shift_bp));
+  const pts = h.filter((p) => isNum(historyValue(p)));
   if (!pts.length) {
     host.innerHTML = '<p class="empty">No historical observations in this snapshot.</p>';
     return;
   }
 
   const W = 900, H = 250;
-  const mg = { t: 22, r: 28, b: 34, l: 40 };
-  const ext = Math.max(...pts.map((p) => Math.abs(p.mean_shift_bp)), 1);
-  const step = niceStep(ext, 2);
-  const yMax = Math.ceil(ext / step) * step;
+  const mg = { t: 22, r: 28, b: 34, l: 48 };
+  const vals = pts.map(historyValue);
+  const ext = Math.max(...vals.map((v) => Math.abs(v)), thr, 1);
+  const step = niceStep(ext, 3);
+  // T is absolute → plot from 0 upward (plus room for threshold line).
+  const yMax = Math.ceil(Math.max(ext, thr) / step) * step;
   const x = (k) => (pts.length === 1 ? (mg.l + W - mg.r) / 2 : mg.l + (k / (pts.length - 1)) * (W - mg.l - mg.r));
-  const y = (v) => mg.t + ((yMax - v) / (2 * yMax)) * (H - mg.t - mg.b);
+  const y = (v) => mg.t + ((yMax - v) / yMax) * (H - mg.t - mg.b);
 
-  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'chart', role: 'img', 'aria-label': 'Historical mean shift chart' });
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'chart', role: 'img', 'aria-label': 'Historical weighted T chart' });
 
-  for (let v = -yMax; v <= yMax + 1e-9; v += step) {
+  for (let v = 0; v <= yMax + 1e-9; v += step) {
     svgEl('line', { x1: mg.l, x2: W - mg.r, y1: y(v), y2: y(v), class: v === 0 ? 'zero' : 'grid' }, svg);
-    svgText(svg, mg.l - 8, y(v) + 3, fmtBp(v), { class: 'tick', 'text-anchor': 'end' });
+    svgText(svg, mg.l - 8, y(v) + 3, fmtAbsBp(v), { class: 'tick', 'text-anchor': 'end' });
   }
 
+  // Threshold line from pipeline metrics_computed.primary_threshold_bp.
+  svgEl('line', {
+    x1: mg.l, x2: W - mg.r, y1: y(thr), y2: y(thr),
+    class: 'zero', 'stroke-dasharray': '4 3',
+  }, svg);
+  svgText(svg, W - mg.r, y(thr) - 6, `T = ${thr}`, { class: 'tick', 'text-anchor': 'end' });
+
   svgEl('path', {
-    d: pts.map((p, k) => `${k ? 'L' : 'M'}${x(k).toFixed(1)},${y(p.mean_shift_bp).toFixed(1)}`).join(''),
+    d: pts.map((p, k) => `${k ? 'L' : 'M'}${x(k).toFixed(1)},${y(historyValue(p)).toFixed(1)}`).join(''),
     class: 'h-line',
   }, svg);
 
   pts.forEach((p, k) => {
-    const v = p.mean_shift_bp;
+    const v = historyValue(p);
+    const flag = historyMarked(p, thr);
     const last = k === pts.length - 1;
-    const dot = svgEl('circle', { cx: x(k), cy: y(v), r: p.flagged ? 5 : 3, class: `h-dot${p.flagged ? ' flag' : ''}` }, svg);
-    svgEl('title', {}, dot).textContent = `${fmtDate(p.date)}: ${fmtBp(v, 1)} bp${p.note ? ` · ${p.note}` : ''}`;
-    if (p.flagged || last) {
-      svgText(svg, x(k), v >= 0 ? y(v) - 10 : y(v) + 18, fmtBp(v, 1), { class: `h-label${p.flagged ? ' flag' : ''}` });
+    const dot = svgEl('circle', { cx: x(k), cy: y(v), r: flag ? 5 : 3, class: `h-dot${flag ? ' flag' : ''}` }, svg);
+    svgEl('title', {}, dot).textContent = `${fmtDate(p.date)}: T ${fmtAbsBp(v, 1)} bp${p.note ? ` · ${p.note}` : ''}`;
+    if (flag || last) {
+      svgText(svg, x(k), y(v) - 10, fmtAbsBp(v, 1), { class: `h-label${flag ? ' flag' : ''}` });
     }
     svgText(svg, x(k), H - mg.b + 18, fmtShortDate(p.date), { class: 'tick', 'text-anchor': 'middle' });
   });
@@ -834,12 +904,12 @@ function renderMaturity() {
     (t) => t.metric === 'max_bucket_abs_change_bp' || t.metric === 'max_abs_change_bp'
   );
   const matNote = !matTrigger || matTrigger.status === 'NOT_EVALUATED'
-    ? 'No bucket / maturity trigger rule has been evaluated.'
-    : `Bucket / maturity rule: ${(TRIGGER_STATUS[matTrigger.status] || {}).label || matTrigger.status}`;
+    ? 'No bucket diagnostic has been evaluated.'
+    : `Bucket diagnostic: ${(TRIGGER_STATUS[matTrigger.status] || {}).label || matTrigger.status}`;
   $('#selStrip').innerHTML = `
-    <div><span class="k">Selected maturity</span><div class="big">${si >= 0 ? `${M[si]} years` : '—'}</div></div>
-    <div><span class="k">${esc(s.curves.implied.label || 'Updated / Implied Curve')}</span><div class="big mono">${fmtPct(I[si])}</div></div>
-    <div><span class="k">Implied − pricing (trigger)</span><div class="big mono teal">${fmtBp(d.change[si])} bp</div></div>
+    <div><span class="k">Selected maturity</span><div class="big">${si >= 0 ? `${M[si]} years` : 'Click a node'}</div></div>
+    <div><span class="k">${esc(s.curves.implied.label || 'Updated / Implied Curve')}</span><div class="big mono">${si >= 0 ? fmtPct(I[si]) : '—'}</div></div>
+    <div><span class="k">Implied − pricing (display)</span><div class="big mono teal">${si >= 0 ? `${fmtBp(d.change[si])} bp` : '—'}</div></div>
     <div class="right"><b>${esc(o.label)}${a.detail ? ` · ${esc(a.detail)}` : ''}</b><small>${esc(matNote)}</small></div>`;
 
   const sign = (v) => (isNum(v) ? (v > 0 ? 'pos' : v < 0 ? 'neg' : '') : '');
@@ -859,14 +929,19 @@ function renderMaturity() {
   const maxTxt = isNum(d.maxAbs)
     ? `max |implied − pricing| ${Math.abs(d.maxAbs).toFixed(0)} bp${d.maxIdx >= 0 ? ` at ${tenor(M[d.maxIdx])}` : ''}`
     : 'max |Δ| —';
-  $('#matFoot').textContent = `${M.length} nodes · ${d.missing.length} missing · mean |implied − pricing| ${fmtBp(d.meanAbs, 1)} bp · ${maxTxt}`;
+  const meanAbsTxt = isNum(d.meanAbs) ? `${fmtAbsBp(d.meanAbs, 1)} bp` : '—';
+  const tTxt = isNum(d.weightedAbs) ? ` · primary T ${fmtAbsBp(d.weightedAbs, 1)} bp (years 1–30)` : '';
+  $('#matFoot').textContent =
+    `${M.length} display nodes · ${d.missing.length} missing · mean |implied − pricing| ${meanAbsTxt} · ${maxTxt}${tTxt}`;
   $('#matFine').textContent = s.is_illustrative
     ? 'ILLUSTRATIVE DATA · Not actual TVFI results. Completeness and finite-value checks describe only this placeholder dataset; they are not production validation. All maturities remain unassessed until rules are calibrated and validated.'
-    : '';
+    : 'T uses annual years 1–30; this table shows the 9 display nodes.';
 
   // Formula cards — show the arithmetic with this snapshot's numbers.
   const i2 = M.indexOf(2), i10 = M.indexOf(10);
-  $('#fParallel').textContent = `Σ|implied − pricing| × 100 / ${d.nValid} = ${fmtBp(d.meanAbs, 1)} bp`;
+  $('#fParallel').textContent = isNum(d.weightedAbs)
+    ? `T = Σ w_t · |Δr_t| (years 1–30) = ${fmtAbsBp(d.weightedAbs, 1)} bp · display mean |Δ| = ${fmtAbsBp(d.meanAbs, 1)} bp`
+    : `Σ|implied − pricing| / ${d.nValid} = ${fmtAbsBp(d.meanAbs, 1)} bp`;
   $('#fTwist').textContent = isNum(d.twist)
     ? `[(${I[i10].toFixed(2)} − ${I[i2].toFixed(2)}) − (${P[i10].toFixed(2)} − ${P[i2].toFixed(2)})] × 100 = ${fmtBp(d.twist, 1)} bp`
     : '[(I10 − I2) − (P10 − P2)] × 100 = —';
@@ -875,7 +950,7 @@ function renderMaturity() {
     : 'Requires both 2-year and 10-year nodes.';
   $('#fImplied').textContent = s.curves.implied.construction || `Mean implied − current = ${fmtBp(d.meanImplied, 1)} bp`;
   $('#fImpliedDesc').textContent = s.curves.implied.construction_note
-    || `Canada-par current − pricing (market context) mean = ${fmtBp(d.meanMarket, 1)} bp · not the trigger delta.`;
+    || `Canada par − column J mean gap = ${fmtBp(d.meanMarket, 1)} bp · basis difference, not a market move.`;
 }
 
 /* ---------- exports & history dialog ---------- */
@@ -899,11 +974,12 @@ function exportCsv() {
 
 function openHistory() {
   const s = state.snap;
+  const thr = primaryThresholdBp(s);
   $('#historyBody').innerHTML = (s.history || []).map((p) => `
     <tr>
       <td>${esc(fmtDate(p.date))}</td>
-      <td>${esc(fmtBp(p.mean_shift_bp, 1))}</td>
-      <td>${p.flagged ? 'Yes' : '—'}</td>
+      <td>${esc(fmtAbsBp(historyValue(p), 1))}</td>
+      <td>${historyMarked(p, thr) ? 'Yes' : '—'}</td>
       <td>${esc(p.note || '')}</td>
     </tr>`).join('') || '<tr><td colspan="4">No observations.</td></tr>';
 

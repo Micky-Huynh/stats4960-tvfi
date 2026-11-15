@@ -127,19 +127,19 @@ Algebra note: with PV(Premium) stored **negative** in the example (`M < 0`), `L 
 
 ---
 
-## 5. Slope export CSV mapping (best notes until `load_results()` is seen)
+## 5. Slope export CSV mapping (confirmed vs `slope_api.REPORTS`)
 
-README: each completed curve yields **seven** CSV reports. Workbook sheet names ↔ likely keys:
+README: each completed curve yields **seven** CSV reports. Workbook sheet names ↔ Slope export keys (`analyse_results.map_result_keys`):
 
-| # | Workbook sheet | Likely `load_results()[curve]` key | Role for primary metrics |
+| # | Workbook sheet (canonical) | Slope / `load_results()` key | Role for primary metrics |
 |---|---|---|---|
-| 1 | `Cash Flows` | `"Cash Flows"` (README example) | Portfolio CTFS-with-expense (`AF`), premiums; BMS path. Not required for per-cell Z/AA/AB if LICAT-by-cell CTFS is present. |
-| 2 | `Reserves` | Possibly `"Liabilities"` (README) or `"Reserves"` | Portfolio T0 AL Net (`AM`); BMS Net CSM. Align key after first real dict. |
+| 1 | `Cash Flows` | `"Cash Flows"` | Portfolio CTFS-with-expense (`AF`), premiums; BMS path. Not required for per-cell Z/AA/AB if LICAT-by-cell CTFS is present. |
+| 2 | `Reserves` | `"Liabilities"` (also accept `"Reserves"`) | Portfolio T0 AL Net (`AM`); BMS Net CSM. |
 | 3 | `LICAT` | `"LICAT"` | Portfolio capital / assets; not needed for Z/AA/AB per cell. |
-| 4 | `By Cell (Reserves)` | likely `"By Cell (Reserves)"` | **Required:** PV Gross Premiums (G), T0 AL Net (V) at t0 month. |
-| 5 | `By Cell (LICAT)` | likely `"By Cell (LICAT)"` | **Required:** CTFS (Q) by year × model point → VoNB ($). |
-| 6 | `By Cell (CFs)` | likely `"By Cell (CFs)"` | **Not referenced** by Summary / CTFS / Aggregated formulas for Y–AB. Keep for diagnostics only. |
-| 7 | `Model Point Fields` | likely `"Model Point Fields"` | **Required:** Plan Code, Initial Premium, attribute fields for joins / individual cuts. |
+| 4 | `By Cell (Reserves)` | `"Liabilities by Cell"` | **Required:** PV Gross Premiums (G), T0 AL Net (V) at t0 month. |
+| 5 | `By Cell (LICAT)` | `"LICAT by CELL"` | **Required:** CTFS (Q) by year × model point → VoNB ($). |
+| 6 | `By Cell (CFs)` | `"Cash Flows by Cell"` | **Not referenced** by Summary / CTFS / Aggregated formulas for Y–AB. Keep for diagnostics only. |
+| 7 | `Model Point Fields` | `"Model Point Fields"` | **Required:** Plan Code, Initial Premium, attribute fields for joins / individual cuts. |
 
 **Not a Slope CSV:** `CTFS by cell`, `By Cell Summary`, `By Cell Aggregated`, `Business Mix Summary` — rebuild in Python.
 

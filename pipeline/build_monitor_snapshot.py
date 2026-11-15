@@ -44,7 +44,7 @@ def main() -> int:
         action="store_true",
         help=(
             "Implied curve from curve_builder rebuilt column J "
-            "(BoC RF when a data/risk_free snapshot exists; else Fiera fixture); "
+            "(live BoC RF pull by default; else cached risk_free / Fiera fixture); "
             "pricing basis stays prior publication J"
         ),
     )
@@ -58,15 +58,23 @@ def main() -> int:
         choices=("auto", "boc", "fiera"),
         default="auto",
         help=(
-            "With --rebuilt: RF source. auto (default) prefers latest BoC "
-            "data/risk_free/*.json; boc forces BoC; fiera forces fixture col E"
+            "With --rebuilt: RF source. auto (default) live-pulls BoC zeros "
+            "(falls back to cache / Fiera); boc forces BoC; fiera forces fixture col E"
         ),
     )
     parser.add_argument(
         "--boc-snapshot",
         type=Path,
         default=None,
-        help="Optional path to data/risk_free/YYYY-MM-DD.json (implies BoC RF)",
+        help="Optional path to data/risk_free/YYYY-MM-DD.json (implies BoC RF; skips live refresh)",
+    )
+    parser.add_argument(
+        "--no-refresh-rf",
+        action="store_true",
+        help=(
+            "With --rebuilt: use cached data/risk_free snapshot only "
+            "(default is to live-pull BoC zeros first)"
+        ),
     )
     parser.add_argument(
         "--no-thresholds",
@@ -87,6 +95,7 @@ def main() -> int:
         rebuilt_as_of=args.as_of,
         rf=args.rf,
         boc_snapshot=args.boc_snapshot,
+        refresh_rf=not args.no_refresh_rf,
     )
     paths = write_snapshot(snapshot)
 

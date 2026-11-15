@@ -34,11 +34,11 @@ From the TVFI project root:
 # Default: consecutive archived Fiera publication pair (implied = published col J)
 python3 -m pipeline.build_monitor_snapshot
 
-# Rebuilt: implied = curve_builder col J (BoC RF when data/risk_free has a
-# dated snapshot; else Fiera fixture) + hold_latest H; pricing basis still
-# prior publication J
+# Rebuilt: live-pulls BoC zeros by default, then rebuilds implied col J
+# (+ hold_latest H); pricing basis still prior publication J
 python3 -m pipeline.build_monitor_snapshot --rebuilt
 python3 -m pipeline.build_monitor_snapshot --rebuilt --as-of 2026-10-30
+python3 -m pipeline.build_monitor_snapshot --rebuilt --no-refresh-rf  # cached RF only
 python3 -m pipeline.build_monitor_snapshot --rebuilt --rf fiera   # force fixture RF
 python3 -m pipeline.build_monitor_snapshot --rebuilt --rf boc     # force BoC RF
 ```
@@ -60,7 +60,7 @@ Footer should say `Loaded snapshot: ../../data/monitor/monitor_snapshot.json`.
 | `fixture_archive` | (default) | prior publication col J | archived latest col J |
 | `rebuilt` | `--rebuilt` | prior publication col J | `curve_builder` rebuilt col J |
 
-In **rebuilt** mode, `meta` carries `curve_mode`, `rf_source`, `rf_as_of`, `lag_note` (when BoC), `premium_policy`, premium `as_of`, and a `construction_record` pointer under `data/curves/`. Default RF is **auto**: prefer latest dated `data/risk_free/YYYY-MM-DD.json` (skip `fixture_boc_zeros_sample.json` unless it is the only file); fall back to Fiera fixture RF with `rf_fallback_note` if none exist. Override with `--rf boc|fiera` or `--boc-snapshot`. Schema stays `1.0`.
+In **rebuilt** mode, `meta` carries `curve_mode`, `rf_source`, `rf_as_of`, `lag_note` (when BoC), `premium_policy`, premium `as_of`, and a `construction_record` pointer under `data/curves/`. Default RF is **auto**: **live-pull** BoC zeros first (writes `data/risk_free/YYYY-MM-DD.json`), soft-falling back to the latest dated cache, then Fiera fixture RF. Use `--no-refresh-rf` to skip the live pull, or `--boc-snapshot` to pin a file. Override source with `--rf boc|fiera`. Schema stays `1.0`.
 
 ## Curve builder (Illiquid column J)
 

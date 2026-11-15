@@ -66,11 +66,17 @@ def select_rebuilt_build(
     rebuilt_as_of: Optional[str],
     rf: RfMode,
     boc_snapshot: Optional[Path],
+    refresh_rf: bool = True,
 ) -> tuple[Dict[str, Any], Optional[str]]:
     """Build rebuilt column J, preferring BoC RF when available.
 
     Returns ``(built, rf_fallback_note)``. ``rf_fallback_note`` is set when
     ``rf="auto"`` falls back to Fiera fixture RF because no BoC snapshot exists.
+
+    By default (``refresh_rf=True`` and no pinned ``boc_snapshot``), live BoC
+    CSV intake runs first so the curve uses the newest published zeros.
+    ``load_risk_free_for_builder`` soft-falls back to a cached snapshot if the
+    download fails. Pass ``refresh_rf=False`` or ``--boc-snapshot`` to pin cache.
     """
     from . import boc_intake
 
@@ -80,25 +86,54 @@ def select_rebuilt_build(
     if force_fiera:
         return curve_builder.build_from_fixtures(as_of=rebuilt_as_of), None
 
-    snap_path = boc_snapshot
-    if snap_path is None and (force_boc or rf == "auto"):
-        snap_path = boc_intake.find_preferred_boc_snapshot()
-
-    if snap_path is not None:
-        built = curve_builder.build_from_boc(
-            as_of=rebuilt_as_of,
-            boc_snapshot=snap_path,
-            try_download=False,
+    # Explicit pin: never re-download.
+    if boc_snapshot is not None:
+        return (
+            curve_builder.build_from_boc(
+                as_of=rebuilt_as_of,
+                boc_snapshot=boc_snapshot,
+                try_download=False,
+            ),
+            None,
         )
-        return built, None
 
-    if force_boc:
-        built = curve_builder.build_from_boc(
-            as_of=rebuilt_as_of,
-            boc_snapshot=None,
-            try_download=True,
-        )
-        return built, None
+    if force_boc or rf == "auto":
+        if refresh_rf:
+            # Live pull first; intake writes a dated JSON then returns it.
+            try:
+                return (
+                    curve_builder.build_from_boc(
+                        as_of=rebuilt_as_of,
+                        boc_snapshot=None,
+                        try_download=True,
+                    ),
+                    None,
+                )
+            except RuntimeError:
+                if force_boc:
+                    raise
+                # auto: fall through to Fiera fixture below
+        else:
+            snap_path = boc_intake.find_preferred_boc_snapshot()
+            if snap_path is not None:
+                return (
+                    curve_builder.build_from_boc(
+                        as_of=rebuilt_as_of,
+                        boc_snapshot=snap_path,
+                        try_download=False,
+                    ),
+                    None,
+                )
+            if force_boc:
+                # No cache and refresh disabled — still attempt one live pull.
+                return (
+                    curve_builder.build_from_boc(
+                        as_of=rebuilt_as_of,
+                        boc_snapshot=None,
+                        try_download=True,
+                    ),
+                    None,
+                )
 
     built = curve_builder.build_from_fixtures(as_of=rebuilt_as_of)
     note = (
@@ -171,12 +206,14 @@ def build_rebuilt_mode(
     rebuilt_as_of: Optional[str],
     rf: RfMode,
     boc_snapshot: Optional[Path],
+    refresh_rf: bool = True,
 ) -> ModeParts:
     """Implied = curve_builder column J (BoC RF preferred)."""
     built, rf_fallback_note = select_rebuilt_build(
         rebuilt_as_of=rebuilt_as_of,
         rf=rf,
         boc_snapshot=boc_snapshot,
+        refresh_rf=refresh_rf,
     )
     record_path = write_construction_record(built)
     implied_fwd = built["forwards"]

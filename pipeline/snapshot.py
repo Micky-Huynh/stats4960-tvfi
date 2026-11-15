@@ -23,6 +23,48 @@ ET = ZoneInfo("America/Toronto")
 SnapshotMode = Literal["fixture_archive", "rebuilt"]
 
 
+def _rf_freshness(
+    *,
+    curve_mode: str,
+    observation_date: str,
+    construction_meta: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Stamp RF freshness without conflating publish lag and obs−RF gap.
+
+    ``rf_publish_lag_days`` (from intake) = calendar_today − rf_as_of.
+    ``obs_rf_calendar_gap_days`` = observation_date − rf_as_of (product gap).
+    These are different; never quote publish lag as the obs−RF gap.
+    """
+    rf_as_of = construction_meta.get("rf_as_of")
+    publish_lag = construction_meta.get("rf_publish_lag_days")
+    obs_gap: Optional[int] = None
+    if rf_as_of and observation_date:
+        try:
+            obs = datetime.fromisoformat(str(observation_date)[:10]).date()
+            rf = datetime.fromisoformat(str(rf_as_of)[:10]).date()
+            obs_gap = (obs - rf).days
+        except ValueError:
+            obs_gap = None
+
+    data_availability = "CURRENT"
+    if curve_mode == "rebuilt" and (
+        (isinstance(publish_lag, (int, float)) and publish_lag > 0)
+        or (obs_gap is not None and obs_gap > 0)
+        or (rf_as_of and str(rf_as_of) < str(observation_date))
+    ):
+        data_availability = "LAGGED"
+
+    return {
+        "data_availability": data_availability,
+        "obs_rf_calendar_gap_days": obs_gap,
+        "lag_semantics": (
+            "rf_publish_lag_days = calendar_today − rf_as_of (intake freshness); "
+            "obs_rf_calendar_gap_days = observation_date − rf_as_of (curve RF age). "
+            "Do not quote publish lag as the observation−RF gap."
+        ),
+    }
+
+
 def _metrics_computed(
     pair: Dict[str, Any],
     weighted: Dict[str, Any],
@@ -64,6 +106,7 @@ def build_snapshot(
     rebuilt_as_of: Optional[str] = None,
     rf: RfMode = "auto",
     boc_snapshot: Optional[Path] = None,
+    refresh_rf: bool = True,
 ) -> Dict[str, Any]:
     """Build a schema 1.0 monitor snapshot.
 
@@ -72,10 +115,11 @@ def build_snapshot(
     fixture_archive
         Implied = archived Fiera publication column J (consecutive monthly pair).
     rebuilt
-        Implied = ``curve_builder`` column J (BoC RF when a snapshot exists;
-        otherwise Fiera fixture RF) + hold_latest H. Pricing basis remains the
-        **prior publication** column J from history — the trigger still measures
-        move vs the last locked pricing baseline, not vs a rebuilt prior.
+        Implied = ``curve_builder`` column J (live BoC CSV pull by default when
+        ``refresh_rf``; otherwise cached ``data/risk_free`` / Fiera fixture RF)
+        + hold_latest H. Pricing basis remains the **prior publication** column J
+        from history — the trigger still measures move vs the last locked pricing
+        baseline, not vs a rebuilt prior.
 
     Thresholds
     ----------
@@ -115,6 +159,7 @@ def build_snapshot(
             rebuilt_as_of=rebuilt_as_of,
             rf=rf,
             boc_snapshot=boc_snapshot,
+            refresh_rf=refresh_rf,
         )
     else:
         parts = snapshot_modes.build_fixture_mode(
@@ -154,6 +199,12 @@ def build_snapshot(
     )
     hist_quality = snapshot_history.history_data_quality(curve_mode=mode)
 
+    fresh = _rf_freshness(
+        curve_mode=mode,
+        observation_date=parts.current_date,
+        construction_meta=parts.construction_meta,
+    )
+
     meta: Dict[str, Any] = {
         "observation_date": parts.current_date,
         "latest_market_date": parts.current_date,
@@ -163,7 +214,7 @@ def build_snapshot(
         "source_label": parts.source_label,
         "last_successful_update": now.isoformat(timespec="seconds"),
         "timezone_label": "ET",
-        "data_availability": "CURRENT",
+        "data_availability": fresh["data_availability"],
         "currency": "CAD",
         "yield_type": "nominal",
         "premium_policy": parts.construction_meta.get(
@@ -171,6 +222,9 @@ def build_snapshot(
         ),
         "premium_policy_note": parts.premium_note,
         **parts.construction_meta,
+        # Named freshness fields (must not confuse publish lag with obs−RF gap).
+        "obs_rf_calendar_gap_days": fresh["obs_rf_calendar_gap_days"],
+        "lag_semantics": fresh["lag_semantics"],
     }
 
     return {

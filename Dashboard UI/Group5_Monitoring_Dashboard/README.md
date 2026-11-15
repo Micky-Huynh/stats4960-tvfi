@@ -1,8 +1,8 @@
 # Yield Curve Monitoring Dashboard — Group 5
 
-A local prototype of the TVFI Secured Retirement yield curve monitoring dashboard. It reads a single `monitor_snapshot.json` file and renders the Overview and Maturity Analysis views.
+Local prototype of the TVFI Secured Retirement yield curve monitoring dashboard. It reads `monitor_snapshot.json` (from the pipeline or a local file) and renders Overview + Maturity Analysis.
 
-**All data is placeholder.** Nothing here is real TVFI data, and no trigger rules are evaluated.
+When served from the TVFI project root, it loads the **pipeline** snapshot at `../../data/monitor/monitor_snapshot.json`. The calibrated weighted trigger (T ≥ 35 bp) is evaluated by the pipeline and displayed here — see `docs/memos/trigger-calibration.md`. Opening `index.html` from disk falls back to an embedded placeholder only.
 
 ## What's in the folder
 
@@ -10,8 +10,8 @@ A local prototype of the TVFI Secured Retirement yield curve monitoring dashboar
 |---|---|
 | `index.html` | The dashboard page |
 | `styles.css` | Styling |
-| `dashboard.js` | Loads the snapshot, calculates metrics, draws the charts |
-| `monitor_snapshot.json` | Placeholder data — this is the format our pipeline needs to produce |
+| `dashboard.js` | Loads the snapshot, calculates display metrics, draws the charts |
+| `monitor_snapshot.json` | Local copy / placeholder format example |
 | `README.md` | This file |
 
 Keep all files in the same folder.
@@ -64,24 +64,27 @@ See `monitor_snapshot.json` for a full example. The main parts:
 | `snapshot_id`, `schema_version` | Identifiers shown in the audit trail |
 | `is_illustrative` | `true` shows the "Illustrative data" banner and demo labels; set `false` for real data |
 | `meta` | Observation/market/pricing dates, source, last update time, data availability, currency |
-| `maturities` | Maturity nodes in years, ascending, e.g. `[0.5, 1, 2, …, 30]` |
+| `maturities` | Display maturity nodes in years (e.g. 9 nodes for charts/table) |
 | `curves.pricing_basis` / `current_basis` / `implied` | Each has `label`, `as_of` and `yields` (in %, same length as `maturities`; use `null` for a missing value) |
 | `assessment` | `overall_status`: `UNASSESSED`, `NO_TRIGGER` or `TRIGGERED`, plus explanatory text |
-| `triggers` | Each rule's `label`, `metric`, `threshold_bp` (`null` = to be calibrated) and `status`: `NOT_EVALUATED`, `PASS` or `BREACH` |
-| `history` | Daily `date`, `mean_shift_bp`, `flagged` and optional `note` |
+| `triggers` | Primary `weighted` (T), diagnostics `bucket` / `twist` / `signed` (S has no threshold) |
+| `history` | Archive rows: `date`, `weighted_abs_bp`, `flagged`, optional `flag_scope` (`archive_only` / `live_primary`), `note` |
+| `metrics_computed` | Pipeline-owned T / S / bucket / `primary_threshold_bp` / display mean \|Δ\| |
+| `meta.obs_rf_calendar_gap_days` | observation_date − rf_as_of (not the same as `rf_publish_lag_days`) |
 | `data_quality`, `pipeline_runs`, `notes` | Audit trail details and chart captions |
 
-The dashboard **calculates** the mean shift, largest move, 2s10s twist and validation checks from the curves. It **does not** evaluate triggers. Trigger statuses come from the Decision log step and are displayed as given.
+The dashboard **displays** pipeline trigger statuses and prefers snapshot `history[].flagged` for markers. Threshold line uses `metrics_computed.primary_threshold_bp`. It does not own calibration.
 
 ### Delta convention (must match the pipeline trigger)
 
 | Measure | Formula | Where used |
 |---|---|---|
-| **Trigger delta** | **implied − pricing** (bp) | Overview KPIs, maturity-level bars, twist, trigger metric display, history mean shift, CSV `implied_minus_pricing_bp` |
-| Market context | current − pricing (Canada par vs pricing) | Curve chart series, maturity table “market” column, tooltip secondary row — **not** KPIs |
+| **Primary T** | Σ w_t · \|Δr_t\| over years 1–30 (bp) | Overview KPI, trigger panel, history chart |
+| **Trigger delta (display)** | **implied − pricing** (bp) at display nodes | Maturity bars / table |
+| Market context | current − pricing (Canada par vs pricing) | Curve chart series, maturity table “market” column — **not** KPIs |
 | Construction uplift | implied − current | Formula card / construction note when present |
 
-This matches `pipeline/snapshot.py`, which compares Fiera column J (implied) to the prior column J (pricing). Do not use Canada-par current − pricing for Overview KPIs.
+This matches `pipeline/snapshot.py`. Do not use Canada-par current − pricing for Overview KPIs.
 
 ## Good to know
 
@@ -90,4 +93,4 @@ This matches `pipeline/snapshot.py`, which compares Fiera column J (implied) to 
 
 ## Future: Cloudflare
 
-This version runs locally only. Later, `monitor_snapshot.json` will be served by a Cloudflare Worker (see the "later prototype" box in the data flow diagram). The only code change needed is `CONFIG.snapshotUrl` at the top of `dashboard.js`, which will point to the Worker URL.
+This version runs locally only. Later, `monitor_snapshot.json` will be served by a Cloudflare Worker. The only code change needed is `CONFIG.snapshotUrl` at the top of `dashboard.js`.

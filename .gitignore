@@ -37,3 +37,8 @@ venv/
 # Temp / lock files
 *.tmp
 *.log
+
+# Slope dry-run local artifacts (do not publish)
+runs.csv
+dry_run_state.json
+exports/

@@ -43,16 +43,16 @@ class TriggerRule:
 # Primary: liability-weighted T = Σ w_t·|Δr_t| over years 1..30 ≥ 35 bp.
 # See docs/memos/trigger-calibration.md.
 CALIBRATED = {
-    "weighted": 35.0,  # primary: T bp
+    "weighted": 35.0,  # primary: T bp — sole write-side source of truth
     # Diagnostics only (do not drive overall_status):
     "bucket": 75.0,  # max per-bucket mean |Δ| bp
     "twist": 40.0,  # |Δ 2s10s| bp — shape diagnostic
-    # Legacy aliases (equal-weight era keys):
-    "parallel": 35.0,
-    "maturity": 75.0,
+    # Deprecated equal-weight era keys (read-compat only; do not use in new code):
+    "parallel": 35.0,  # == weighted; remove after consumer audit
+    "maturity": 75.0,  # == bucket; remove after consumer audit
 }
 
-# Back-compat alias used by snapshot history flagging.
+# Deprecated alias of CALIBRATED (prefer CALIBRATED / use_calibrated=True).
 PROVISIONAL = CALIBRATED
 
 PRIMARY_RULE_ID = "weighted"
@@ -66,7 +66,7 @@ def evaluate(
     *,
     max_bucket_label: Optional[str] = None,
     use_calibrated: bool = True,
-    use_provisional: Optional[bool] = None,
+    use_provisional: Optional[bool] = None,  # deprecated: prefer use_calibrated
 ) -> List[TriggerRule]:
     """Evaluate primary + diagnostic rules. Primary measure is weighted T."""
     active = use_calibrated if use_provisional is None else bool(use_provisional)

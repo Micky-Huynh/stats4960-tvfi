@@ -1,8 +1,10 @@
 """Archive consecutive-column-J history rows for monitor snapshots.
 
 History always uses archived Fiera publication pairs (not the live rebuilt
-BoC path). In rebuilt mode, rows stay for chart context but are never flagged
-as live-trigger events.
+BoC path). ``flagged`` marks archive months where weighted T ≥ calibrated
+primary so the JSON matches the dashboard chart. In rebuilt mode those marks
+are archive context only — overall live status still comes from the rebuilt
+pricing→implied pair.
 """
 
 from __future__ import annotations
@@ -20,13 +22,15 @@ def history_reading(*, curve_mode: str) -> str:
     if curve_mode == "rebuilt":
         return (
             "History chart is archived Fiera column-J pairs only "
-            "(publication → next publication). It is not the live rebuilt "
-            "path (prior J vs BoC-rebuilt implied). Red flags are omitted "
-            "in rebuilt mode so archive moves are not read as live triggers."
+            "(publication → next publication). Live KPI T uses the rebuilt "
+            "path (prior J vs BoC-rebuilt implied) and can differ from the "
+            "last history point. Markers are archive T ≥ 35 bp, not live "
+            "rebuilt triggers."
         )
     return (
         "History chart is consecutive archived Fiera column-J pairs "
-        "(same basis as the live fixture_archive trigger)."
+        "(same basis as the live fixture_archive trigger). Markers are "
+        "months where weighted T ≥ 35 bp."
     )
 
 
@@ -36,11 +40,8 @@ def history_data_quality(*, curve_mode: str) -> Dict[str, Any]:
     return {
         "history_basis": HISTORY_BASIS,
         "history_matches_live_path": matches,
-        "history_flagging": (
-            "disabled_in_rebuilt"
-            if curve_mode == "rebuilt"
-            else "weighted_abs_vs_calibrated_primary"
-        ),
+        "history_flagging": "weighted_abs_vs_calibrated_primary",
+        "history_flags_are_live_triggers": matches,
     }
 
 
@@ -53,20 +54,18 @@ def build_history_rows(
 ) -> List[Dict[str, Any]]:
     """Build last-N archive consecutive-J history rows.
 
-    When ``curve_mode == "rebuilt"``, ``flagged`` is always False (no fake
-    live-trigger events). Fixture mode flags when weighted T ≥ calibrated primary.
+    ``flagged`` is True whenever archive weighted T ≥ calibrated primary so
+    the snapshot JSON matches the dashboard. Rebuilt mode still notes that
+    those marks are archive-only (not the live rebuilt overall_status).
     """
     thr = trigger.CALIBRATED["weighted"]
-    allow_flags = curve_mode == "fixture_archive"
     rows: List[Dict[str, Any]] = []
     for interval in im.consecutive_interval_metrics(
         forwards, maturities, last_n=last_n
     ):
-        # Chart still uses signed equal-weight mean for the history series.
         mean = interval["mean_signed_bp"]
         t_bp = interval["weighted_abs_bp"]
-        would_flag = bool(t_bp is not None and t_bp >= thr)
-        flagged = bool(allow_flags and would_flag)
+        flagged = bool(t_bp is not None and t_bp >= thr)
         row: Dict[str, Any] = {
             "date": interval["curr"],
             "mean_shift_bp": None if mean is None else round(mean, 1),
@@ -75,11 +74,16 @@ def build_history_rows(
             "basis": HISTORY_BASIS,
         }
         if flagged:
-            row["note"] = f"primary weighted T threshold (≥{thr:g} bp)"
-        elif curve_mode == "rebuilt" and would_flag:
+            # Chart marker scope — never drives assessment.overall_status.
+            row["flag_scope"] = (
+                "archive_only" if curve_mode == "rebuilt" else "live_primary"
+            )
+        if flagged and curve_mode == "rebuilt":
             row["note"] = (
-                f"archive-only context (≥{thr:g} bp weighted T); "
+                f"archive marker T ≥ {thr:g} bp (Fiera consecutive months); "
                 "not a live rebuilt trigger"
             )
+        elif flagged:
+            row["note"] = f"primary weighted T threshold (≥{thr:g} bp)"
         rows.append(row)
     return rows

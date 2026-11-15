@@ -102,16 +102,16 @@
   <div class="tab-panel" id="tab-overview">
     <div class="kpis">
       <article class="card kpi">
-        <p class="kpi-label">Parallel Yield Curve Shift (bp)</p>
+        <p class="kpi-label">Weighted |Δ| T (bp)</p>
         <div class="kpi-value" id="kpiParallel"></div>
-        <p class="kpi-line">Implied vs pricing · equal-weight mean</p>
+        <p class="kpi-line">Implied vs pricing · weighted over years 1–30</p>
         <p class="kpi-foot" id="kpiParallelFoot"></p>
       </article>
       <article class="card kpi">
-        <p class="kpi-label">Largest Maturity-Level Change (bp)</p>
+        <p class="kpi-label">Largest Bucket Mean |Δ| (bp)</p>
         <div class="kpi-value" id="kpiLargest"></div>
         <p class="kpi-line" id="kpiLargestLine"></p>
-        <p class="kpi-foot">Signed implied − pricing at the most-moved maturity node.</p>
+        <p class="kpi-foot">Mean absolute implied − pricing in the most-moved 5-year bucket.</p>
       </article>
       <article class="card kpi">
         <p class="kpi-label">Curve Shape / Twist Indicator</p>
@@ -181,16 +181,16 @@
         <div class="card-head">
           <div>
             <h2>Historical movement indicator</h2>
-            <p class="desc">Equal-weight mean shift · implied − pricing (bp)<span id="historyDescSuffix"></span></p>
+            <p class="desc">Weighted |Δ| T · years 1–30 (bp)<span id="historyDescSuffix"></span></p>
           </div>
           <span class="desc" id="historyPeriod"></span>
         </div>
         <div class="chart-wrap" id="historyChart"></div>
       </div>
       <aside class="history-events">
-        <span class="events-tag">○ Simulated trigger events</span>
+        <span class="events-tag">○ Archive markers (T ≥ primary threshold)</span>
         <div class="events-count"><span id="eventsCount"></span> <small>observations marked</small></div>
-        <p class="desc">Markers show how unusual movements and event frequency could be reviewed. They are hand-selected examples, not validated rule outputs or an estimated trigger rate.</p>
+        <p class="desc">Archive Fiera month-to-month markers where weighted T ≥ the calibrated primary threshold. In rebuilt mode these are chart context only — live overall_status still comes from the rebuilt pricing→implied pair.</p>
         <ul class="events-list" id="eventsList"></ul>
       </aside>
     </article>
@@ -220,8 +220,8 @@
               <th id="thPricing">Pricing Basis Curve</th>
               <th id="thCurrent">Current Basis Curve</th>
               <th id="thImplied">Updated / Implied Curve</th>
-              <th>Current − pricing<br>market · bp</th>
-              <th>Implied − pricing<br>trigger · bp</th>
+              <th>Current − pricing<br>Canada par − col J · bp</th>
+              <th>Implied − pricing<br>display · bp</th>
               <th>Validation<br>sample checks</th>
             </tr>
           </thead>
@@ -238,9 +238,9 @@
     <div class="formulas">
       <article class="card formula">
         <span class="eyebrow">01 / Level</span>
-        <h3>Parallel Yield Curve Shift (bp)</h3>
+        <h3>Weighted |Δ| T (bp)</h3>
         <code id="fParallel"></code>
-        <p class="desc">Equal weight at each maturity node. This level proxy can coexist with a twist; it does not assert that the entire curve moved in parallel.</p>
+        <p class="desc">Liability-weighted absolute change over years 1–30 (primary trigger). Display-node mean |Δ| below is for the maturity table only.</p>
       </article>
       <article class="card formula">
         <span class="eyebrow">02 / Shape</span>
@@ -263,7 +263,7 @@
     <span class="eyebrow">Methodology &amp; governance</span>
     <span>TVFI · Internal actuarial use · Illustrative design v1.0</span>
   </div>
-  <p>Planned Python pipeline: retrieve daily Canadian yields, use the latest available Fiera reference where appropriate, construct implied curves, calculate movements and evaluate proposed triggers. Pipeline integration, actual calculations and thresholds await separate implementation, calibration and validation.</p>
+  <p>Python pipeline builds this snapshot: archived Fiera curves (and optional BoC-rebuilt implied), liability-weighted trigger T ≥ 35 bp (diagnostics: bucket / twist / signed S), decision log. Calibration: <span class="mono">docs/memos/trigger-calibration.md</span>. Slope profitability remains a separate step after a primary breach.</p>
   <p class="strong">Monitoring may warrant further profitability analysis. This dashboard does not recommend repricing; calculation and trigger validation are separate.</p>
   <p class="source-line">Loaded snapshot: <span class="mono" id="loadedFrom"></span></p>
 </footer>
@@ -276,7 +276,7 @@
   <h3>Historical movement observations</h3>
   <div class="table-scroll">
     <table class="mat compact">
-      <thead><tr><th>Date</th><th>Mean shift (bp)</th><th>Marked</th><th>Note</th></tr></thead>
+      <thead><tr><th>Date</th><th>Weighted T (bp)</th><th>Marked</th><th>Note</th></tr></thead>
       <tbody id="historyBody"></tbody>
     </table>
   </div>
