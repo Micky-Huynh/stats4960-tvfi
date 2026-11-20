@@ -2,7 +2,7 @@
 
 Local prototype of the TVFI Secured Retirement yield curve monitoring dashboard. It reads `monitor_snapshot.json` (from the pipeline or a local file) and renders Overview + Maturity Analysis.
 
-When served from the TVFI project root, it loads the **pipeline** snapshot at `../../data/monitor/monitor_snapshot.json`. The calibrated weighted trigger (T ≥ 35 bp) is evaluated by the pipeline and displayed here — see `docs/memos/trigger-calibration.md`. Opening `index.html` from disk falls back to an embedded placeholder only.
+When served from the TVFI project root, it loads the **pipeline** snapshot at `../../data/monitor/monitor_snapshot.json`. The calibrated weighted trigger (T ≥ 25 bp) is evaluated by the pipeline and displayed here — see `docs/memos/trigger-calibration.md`. Opening `index.html` from disk falls back to an embedded placeholder only.
 
 ## What's in the folder
 

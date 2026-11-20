@@ -117,7 +117,7 @@ def main() -> int:
         f"\nCalibrated primary fires: {len(fires)}/{n} "
         f"({100 * len(fires) / n:.1f}%) ≈ {12 * len(fires) / n:.2f}/year"
     )
-    print("\nBreaching months (primary T ≥ 35):")
+    print("\nBreaching months (primary T ≥ 25):")
     print(
         f"  {'as_of':<12} {'T':>8} {'S':>8} {'bucket':>8} {'which':>8} {'mean|Δ|':>8}"
     )

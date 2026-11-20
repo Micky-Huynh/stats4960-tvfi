@@ -2,7 +2,7 @@
 
 **Course:** STATS 4960 · Group 5 × Thames Valley Financial Inc.  
 **Repo:** [Micky-Huynh/stats4960-tvfi](https://github.com/Micky-Huynh/stats4960-tvfi)  
-**Last updated:** 2026-11-09
+**Last updated:** 2026-11-20
 
 **Goal (one line):** Daily Canadian risk-free + Fiera construction → Slope annual forwards (column J) → cheap no-Slope trigger → insurer VoNB / Net CSM / CaPM → dashboard via `monitor_snapshot.json`.
 
@@ -22,7 +22,7 @@
 - **Column J builder** (`pipeline/curve_builder.py`): `--rf fiera|boc`; Fiera fixture validates vs published J (~0 bp error). Outputs under `data/curves/`
 - **Rebuilt snapshot (Wave 4):** `python3 -m pipeline.build_monitor_snapshot --rebuilt` **auto-prefers BoC RF** when `data/risk_free/` has a snapshot (`--rf auto|boc|fiera`). Latest: `Fiera-20261030-R01`, **`NO_TRIGGER`**, `rf_source=boc_zero_coupon_csv`, mean |Δ| ≈ **16.9 bp**
 - **Decision log:** each build writes `data/decisions/YYYY-MM-DD.json`; snapshot carries `decision` + `profitability` hooks (`profitability.status=not_run` until Slope exports exist)
-- **Calibrated trigger** (`pipeline/trigger.py`): primary rule liability-weighted |Δ| **T ≥ 35 bp** (~1.7 fires/year over years 1–30). Diagnostics: max bucket mean |Δ| 75 bp, |2s10s| 40 bp, signed S (no threshold). Back-test: `python3 -m pipeline.backtest_trigger`
+- **Calibrated trigger** (`pipeline/trigger.py`): primary rule liability-weighted |Δ| **T ≥ 25 bp** (~3.3 fires/year over years 1–30; team 2026-11-20). Diagnostics: max bucket mean |Δ| **40 bp**, |2s10s| 40 bp, signed S (no threshold). Bucket does **not** fire alone. Back-test: `python3 -m pipeline.backtest_trigger`
 
 ### Dashboard
 - Static prototype: `Dashboard UI/Group5_Monitoring_Dashboard/`
@@ -43,7 +43,7 @@
 | `docs/memos/column-h-liquidity-premium.md` | **`hold_latest_publication`** for col H |
 | `docs/memos/daily-risk-free-source.md` | **BoC zero-coupon CSV** as primary RF source (own ~2-week lag) |
 | `docs/memos/boc-rf-lag-freshness.md` | BoC URL, lag labeling, intake commands |
-| `docs/memos/trigger-calibration.md` | Single primary: weighted \|Δ\| T ≥ **35 bp** (years 1–30) |
+| `docs/memos/trigger-calibration.md` | Single primary: weighted \|Δ\| T ≥ **25 bp** (years 1–30); bucket diagnostic 40 bp |
 | `docs/memos/profitability-formula-map.md` | VoNB % / Net CSM % / CaPM formulas (+ local `pipeline/profitability_formulas.py`) |
 
 ### Sam / TVFI feedback absorbed
@@ -61,7 +61,7 @@ Team / industry partner should explicitly review and sign off on:
 2. **Daily RF source** — Is BoC zero-coupon CSV the right primary despite ~2-week lag? (Valet benchmarks only as freshness overlay.)  
    → `docs/memos/daily-risk-free-source.md` · `docs/memos/boc-rf-lag-freshness.md`
 
-3. **Trigger threshold** — Is weighted |Δ| T ≥ **35 bp** (~1.7 fires/year on Fiera monthly history) ops-reasonable?  
+3. **Trigger threshold** — Team set weighted |Δ| T ≥ **25 bp** + bucket diagnostic **40 bp** (2-year sample ~24 comparisons; full archive ~3.3 fires/year at 25 bp). Confirm ops-reasonable with TVFI.  
    → `docs/memos/trigger-calibration.md` + `python3 -m pipeline.backtest_trigger`
 
 4. **Extrapolation past 30y** — When BoC zeros feed the builder, confirm how we extend to Slope durations 1–100 (builder currently mirrors Fiera ultimate behavior).
@@ -78,15 +78,27 @@ Team / industry partner should explicitly review and sign off on:
 
 ---
 
+## Partner review pack (2026-11-20)
+
+Ready to send: `docs/partner-review/2026-11-20/`
+
+- Sign-off checklist (H / RF / trigger 25+40) in that folder’s `README.md`
+- Memos copied under `memos/`
+- Back-test at 25 bp: `artifacts/backtest_trigger_25bp.txt` (23/84 ≈ 3.29/yr)
+- Slope-ready baseline + implied workbooks under `slope_inputs/` (unique names; Fiera-validated J ≈ 0 bp)
+- Latest rebuilt snapshot in pack: **TRIGGERED** (T ≈ 25.24 bp)
+
 ## What’s next
 
 ### Wave 5 (blocked / finalize)
-1. **Slope checkpoint** — Obtain `slope_api.py` from TVFI; dry-run `run_curves.py` / `analyse_results.py`; reconcile CSV keys vs formula map; submit baseline + implied workbooks.
-2. **Fill report §5** — Baseline vs implied VoNB / Net CSM / CaPM once Slope exports exist; attach path into snapshot (`profitability.status=export_found`), then parse metrics to flip `available`.
-3. **Word report + presentation** — Export draft to Times New Roman 12pt / 1" margins; finalize slides from `docs/report/presentation_outline.md`.
+1. **TVFI sign-off** on review pack items 1–3 (H / RF / trigger).
+2. **Slope checkpoint** — Run baseline + implied from `docs/handoff/.../slope_inputs/` via `run_curves.py` / `analyse_results.py` once TVFI confirms model path; reconcile CSV keys vs formula map.
+3. **Fill report §5** — Baseline vs implied VoNB / Net CSM / CaPM once Slope exports exist; attach path into snapshot (`profitability.status=export_found`), then parse metrics to flip `available`.
+4. **Word report + presentation** — After Slope numbers (deferred for now).
 
 ### Blocked on TVFI
-- **`slope_api.py` / dummy Slope** — Required for dry runs and real profitability numbers.
+- Explicit memo sign-off (H / RF / 25 bp trigger).
+- Real Slope model run / confirmation of `slope_api.py` path for profitability numbers.
 - Meeting with Nathan (approved) on codebase / docs expectations if still needed.
 
 ---
@@ -113,7 +125,7 @@ cd "Dashboard UI/Group5_Monitoring_Dashboard" && python3 -m http.server 8000
 |---|---|
 | Fiera archive + extracts | Done |
 | Dashboard + snapshot handoff | Done |
-| Col H / RF / trigger memos | Done — **needs review** |
+| Col H / RF / trigger memos | Done — **review pack ready** (`docs/partner-review/2026-11-20/`) |
 | Col-J builder (fixture RF) | Done |
 | BoC daily intake | Done (live download verified) |
 | Snapshot driven by rebuilt J | Done (`--rebuilt` **defaults to BoC RF**) |

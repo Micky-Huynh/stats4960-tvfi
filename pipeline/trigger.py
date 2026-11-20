@@ -39,17 +39,17 @@ class TriggerRule:
         }
 
 
-# Calibrated on Fiera consecutive monthly col-J curves (2019-10 → 2026-10).
-# Primary: liability-weighted T = Σ w_t·|Δr_t| over years 1..30 ≥ 35 bp.
+# Team thresholds (2026-11-20): weighted T ≥ 25 bp; bucket diagnostic ≥ 40 bp.
+# Primary: liability-weighted T = Σ w_t·|Δr_t| over years 1..30.
 # See docs/memos/trigger-calibration.md.
 CALIBRATED = {
-    "weighted": 35.0,  # primary: T bp — sole write-side source of truth
+    "weighted": 25.0,  # primary: T bp — sole write-side source of truth
     # Diagnostics only (do not drive overall_status):
-    "bucket": 75.0,  # max per-bucket mean |Δ| bp
+    "bucket": 40.0,  # max per-bucket mean |Δ| bp
     "twist": 40.0,  # |Δ 2s10s| bp — shape diagnostic
     # Deprecated equal-weight era keys (read-compat only; do not use in new code):
-    "parallel": 35.0,  # == weighted; remove after consumer audit
-    "maturity": 75.0,  # == bucket; remove after consumer audit
+    "parallel": 25.0,  # == weighted; remove after consumer audit
+    "maturity": 40.0,  # == bucket; remove after consumer audit
 }
 
 # Deprecated alias of CALIBRATED (prefer CALIBRATED / use_calibrated=True).

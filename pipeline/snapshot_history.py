@@ -24,13 +24,13 @@ def history_reading(*, curve_mode: str) -> str:
             "History chart is archived Fiera column-J pairs only "
             "(publication → next publication). Live KPI T uses the rebuilt "
             "path (prior J vs BoC-rebuilt implied) and can differ from the "
-            "last history point. Markers are archive T ≥ 35 bp, not live "
+            "last history point. Markers are archive T ≥ 25 bp, not live "
             "rebuilt triggers."
         )
     return (
         "History chart is consecutive archived Fiera column-J pairs "
         "(same basis as the live fixture_archive trigger). Markers are "
-        "months where weighted T ≥ 35 bp."
+        "months where weighted T ≥ 25 bp."
     )
 
 

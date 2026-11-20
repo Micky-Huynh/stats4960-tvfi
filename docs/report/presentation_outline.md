@@ -10,11 +10,11 @@
 ## Slide 1 — Title / ask
 
 - STATS 4960 Group 5 × Thames Valley Financial Inc.
-- Ask: Approve the monitoring design (RF + Col H + 35 bp trigger) and unlock Slope dry-run (`slope_api.py`).
+- Ask: Approve the monitoring design (RF + Col H + 25 bp trigger) and unlock Slope dry-run (`slope_api.py`).
 
 ## Slide 2 — Recommendation in one breath
 
-- Daily **BoC zeros** → hold Fiera **H** → rebuild **J** → **mean \|Δ\| ≥ 35 bp** → Slope → VoNB / Net CSM / CaPM on dashboard.
+- Daily **BoC zeros** → hold Fiera **H** → rebuild **J** → **weighted \|Δ\| T ≥ 25 bp** → Slope → VoNB / Net CSM / CaPM on dashboard.
 - Curve-only trigger; one RF source; H held between pubs.
 
 ## Slide 3 — Ops process (flowchart)
@@ -24,7 +24,7 @@
 
 ## Slide 4 — Trigger calibration
 
-- Primary: mean \|Δ\| ≥ **35 bp** (~2 fires/year; 14/84 months).
+- Primary: weighted \|Δ\| T ≥ **25 bp** (~3.3 fires/year; 23/84 months); bucket diagnostic 40 bp.
 - Old multi-rule OR ≈6.4/yr — too chatty.
 - Diagnostics only: max \|Δ\|, 2s10s twist.
 - Caveat: monthly Fiera history; re-calibrate on daily BoC path.
@@ -43,7 +43,7 @@
 
 ## Slide 7 — Open reviews / risks
 
-- Partner sign-off: H, RF lag, 35 bp, >30y extrapolation, dashboard KPIs.
+- Partner sign-off: H, RF lag, 25 bp / bucket 40 bp, >30y extrapolation, dashboard KPIs.
 - Risks: BoC lag, extrapolation, trigger re-cal on daily data, no live profitability yet.
 
 ## Slide 8 — Next steps / ask

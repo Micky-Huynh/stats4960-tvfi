@@ -28,7 +28,7 @@ Adopt a **curve-only daily monitoring process** that:
 1. Pulls the **Bank of Canada zero-coupon CSV** as the sole primary Canadian risk-free (RF) input (accept ~2-week publication lag; label freshness on the dashboard).
 2. **Holds the latest Fiera-published liquidity premium (column H)** and static top-left insurer parameters between monthly Fiera publications.
 3. Rebuilds **annual forward rates (column J)** for Slope from daily RF + held H + Fiera θ.
-4. Fires a **single primary trigger** — mean absolute change across display maturities **≥ 35 bp** — to start a Slope profitability test (diagnostics for max |Δ| and twist only).
+4. Fires a **single primary trigger** — liability-weighted |Δ| **T ≥ 25 bp** over years 1–30 — to start a Slope profitability test (diagnostics: bucket mean |Δ| 40 bp, twist 40 bp).
 5. On trigger (or checkpoint), runs Slope baseline vs implied curves and reports **insurer** metrics **VoNB (%)**, **Net CSM (%)**, and **CaPM** — formulas transcribed; **live numbers blocked** until TVFI provides `slope_api.py` / exports.
 
 Sam liked the dashboard mock-up direction; keep Overview on implied − pricing and Canada-par as market context only.
@@ -39,7 +39,7 @@ Sam liked the dashboard mock-up direction; keep Overview on implied − pricing 
 |---|---|
 | Defend column H (don’t leave monthly without analysis); θ static | MoM analysis: typical \|ΔH\| ~4–6 bp; RF dominates J between pubs → `hold_latest_publication`; θ = latest Fiera block |
 | Pick **one** daily RF source (active recommendation) | BoC zeros CSV only; Valet benchmarks = freshness overlay, not a second primary |
-| Rewrite trigger: curve-only; no Slope / no PV-liability inside trigger | Primary = mean \|Δ\| ≥ **35 bp** (~2 fires/year on Fiera monthly history) |
+| Rewrite trigger: curve-only; no Slope / no PV-liability inside trigger | Primary = weighted \|Δ\| T ≥ **25 bp** (~3.3 fires/year on Fiera monthly history); bucket diagnostic 40 bp |
 | Drop second “black swan” trigger | Multi-rule OR logic retired; max/twist remain diagnostic only |
 | Primary metrics = VoNB / Net CSM / CaPM (insurer view) | Formula map locked; checkpoint paste in `analyse_results.py` |
 
@@ -50,7 +50,7 @@ Sam liked the dashboard mock-up direction; keep Overview on implied − pricing 
 
 ### Still pending for the final report
 
-- [ ] Partner sign-off on Col H, RF source, 35 bp threshold, >30y extrapolation, dashboard KPI contract.
+- [ ] Partner sign-off on Col H, RF source, 25 bp / bucket 40 bp thresholds, >30y extrapolation, dashboard KPI contract.
 - [ ] Slope dry-run / real exports → fill §5 comparison tables (**no fabricated numbers**).
 - [ ] Default `--rebuilt` snapshot path to BoC RF when a fresh `data/risk_free/` file exists.
 
@@ -64,7 +64,7 @@ End-to-end daily / monthly ops path the report should document for TVFI.
 Daily BoC RF intake
     → Hold latest Fiera column H (+ static θ)
     → Build column J (annual forwards)
-    → Curve-only trigger (mean |Δ| ≥ 35 bp)
+    → Curve-only trigger (weighted |Δ| T ≥ 25 bp)
     → If FIRE: Slope profitability (baseline vs implied)
     → Dashboard via monitor_snapshot.json
 ```
@@ -100,7 +100,7 @@ Daily BoC RF intake
 
 - Display maturities: `{1, 2, 3, 5, 7, 10, 15, 20, 30}`.
 - **Primary:** mean \|Δ\| bp ≥ **35** → `overall_status` = fire / start Slope test.
-- **Diagnostics only:** max \|Δ\| ≥ 75 bp; \|2s10s twist\| ≥ 40 bp.
+- **Diagnostics only:** max bucket mean \|Δ\| ≥ 40 bp; \|2s10s twist\| ≥ 40 bp.
 - Back-test: `python3 -m pipeline.backtest_trigger`.
 
 ### 2.5 Slope profitability (when trigger fires or on checkpoint)
@@ -130,7 +130,8 @@ Daily BoC RF intake
 **Primary rule (drives `overall_status`):**
 
 > Fire / start a Slope profitability test when the **mean absolute change** across display maturities  
-> \|Δ\| averaged over `{1, 2, 3, 5, 7, 10, 15, 20, 30}` ≥ **35 bp**  
+> Liability-weighted \|Δ\| T over years 1–30 ≥ **25 bp**  
+
 > between consecutive monthly Fiera column-J curves (or pricing basis vs next implied).
 
 Sam constraint: **one** trigger that starts Slope; drop redundant multi-rule / “second black-swan” OR logic.
@@ -154,7 +155,7 @@ Sam constraint: **one** trigger that starts Slope; drop redundant multi-rule / �
 
 Old OR-of-three rule fired **45/84 (≈6.4/yr)** — too chatty for an ops trigger that launches Slope.
 
-**Why mean \|Δ\| @ 35 bp:** already on the monitor path; balances the curve (max alone is node-noisy); duration-weighted does not clearly beat equal-weight; twist kept diagnostic. Fires concentrate in COVID (2020) and the hiking cycle (2022–23); **zero** fires in calm 2024–2025 under this rule.
+**Why weighted T @ 25 bp:** team 2026-11-20 adjustment (prior 35 bp); liability weights emphasize years 16–30; bucket @ 40 bp stays diagnostic. Full-archive fire rate ~3.3/year; 2-year ops sample was sparse (~24 comparisons).
 
 ### 3.3 Caveats (carry into final report)
 
@@ -257,7 +258,7 @@ Team / industry partner should explicitly review and sign off (`PROJECT_STATUS.m
 |---|---|---|---|
 | 1 | **Column H policy** — is `hold_latest_publication` acceptable? | Mid-month liquidity shocks not in J until next Fiera pub | `column-h-liquidity-premium.md` |
 | 2 | **Daily RF source** — BoC zeros despite ~2-week lag? | Stale RF vs calendar; ops must trust lag badge | `daily-risk-free-source.md`, `boc-rf-lag-freshness.md` |
-| 3 | **Trigger 35 bp** — ops-reasonable (~2/yr)? | Too quiet in calm regimes / too chatty if lowered blindly | `trigger-calibration.md`, `pipeline.backtest_trigger` |
+| 3 | **Trigger 25 bp** (+ bucket diagnostic 40 bp) — ops-reasonable (~3.3/yr)? | More fires than prior 35 bp; 2-year sample thin (~24 pairs) | `trigger-calibration.md`, `pipeline.backtest_trigger` |
 | 4 | **Extrapolation past 30y** — BoC → Slope 1–100 | Mismatch vs Fiera ultimate / benefit-rate sensitivity | Builder currently mirrors Fiera ultimate behavior |
 | 5 | **Dashboard KPI contract** | JS re-derives deltas inconsistently vs snapshot | Prefer `metrics_computed`; Canada-par = context only |
 | 6 | **Checkpoint hygiene** | Wrong GROUP / curve path on real submission | Confirm `GROUP = 5`, root `sample_curve.xlsx` |

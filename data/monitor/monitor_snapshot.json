@@ -1,5 +1,5 @@
 {
-  "_note": "Built by pipeline/build_monitor_snapshot.py --rebuilt. Pricing basis = prior month archived column J; current = Canada par; implied = curve_builder rebuilt column J (BoC RF as of 2026-10-28). Trigger: calibrated weighted |\u0394| T (see docs/memos/trigger-calibration.md).",
+  "_note": "Built by pipeline/build_monitor_snapshot.py --rebuilt. Pricing basis = prior month archived column J; current = Canada par; implied = curve_builder rebuilt column J (BoC RF as of 2026-11-04). Trigger: calibrated weighted |\u0394| T (see docs/memos/trigger-calibration.md).",
   "schema_version": "1.0",
   "snapshot_id": "Fiera-20261030-R01",
   "is_illustrative": false,
@@ -10,24 +10,24 @@
     "pricing_basis_date": "2026-09-29",
     "source": "Fiera CIA IFRS 17 method workbook (Canada par + Illiquid col J)",
     "source_label": "Fiera monthly + rebuilt J",
-    "last_successful_update": "2026-11-14T19:37:18-05:00",
+    "last_successful_update": "2026-11-20T13:20:01-05:00",
     "timezone_label": "ET",
     "data_availability": "LAGGED",
     "currency": "CAD",
     "yield_type": "nominal",
     "premium_policy": "hold_latest_publication",
-    "premium_policy_note": "Column H held under hold_latest_publication; implied J rebuilt from BoC zero-coupon CSV RF (rf_as_of=2026-10-28).",
+    "premium_policy_note": "Column H held under hold_latest_publication; implied J rebuilt from BoC zero-coupon CSV RF (rf_as_of=2026-11-04).",
     "curve_mode": "rebuilt",
     "rf_source": "boc_zero_coupon_csv",
-    "rf_as_of": "2026-10-28",
+    "rf_as_of": "2026-11-04",
     "premium_as_of": "2026-10-30",
     "params_as_of": "2026-10-30",
     "construction_record": "data/curves/construction_record_2026-10-30.json",
-    "construction_xlsx": "data/curves/illiquid_col_j_boc_rf_2026-10-28_h_2026-10-30.xlsx",
-    "construction_csv": "data/curves/illiquid_col_j_boc_rf_2026-10-28_h_2026-10-30.csv",
+    "construction_xlsx": "data/curves/illiquid_col_j_boc_rf_2026-11-04_h_2026-10-30.xlsx",
+    "construction_csv": "data/curves/illiquid_col_j_boc_rf_2026-11-04_h_2026-10-30.csv",
     "lag_note": "BoC zero-coupon CSV typically refreshes Thursday ~16:30 ET with ~2-week publication lag; hold last published curve as rf_asof.",
-    "rf_publish_lag_days": 17,
-    "obs_rf_calendar_gap_days": 2,
+    "rf_publish_lag_days": 16,
+    "obs_rf_calendar_gap_days": -5,
     "lag_semantics": "rf_publish_lag_days = calendar_today \u2212 rf_as_of (intake freshness); obs_rf_calendar_gap_days = observation_date \u2212 rf_as_of (curve RF age). Do not quote publish lag as the observation\u2212RF gap."
   },
   "maturities": [
@@ -78,44 +78,44 @@
       "label": "Updated / Implied Curve",
       "as_of": "2026-10-30",
       "construction": "Rebuilt Illiquid column J via pipeline.curve_builder (rf_source=boc_zero_coupon_csv, premium_policy=hold_latest_publication)",
-      "construction_note": "Implied curve is reconstructed annual forwards (column J) from BoC zero-coupon RF (rf_as_of=2026-10-28) + held liquidity premium (column H as of 2026-10-30). Pricing basis stays prior Fiera publication column J (2026-09-29).",
+      "construction_note": "Implied curve is reconstructed annual forwards (column J) from BoC zero-coupon RF (rf_as_of=2026-11-04) + held liquidity premium (column H as of 2026-10-30). Pricing basis stays prior Fiera publication column J (2026-09-29).",
       "series": "illiquid_annual_forward_column_J_rebuilt",
       "yields": [
-        4.1418,
-        4.8968,
-        5.0147,
-        5.0107,
-        5.7036,
-        6.2151,
-        6.1161,
-        6.0827,
-        5.8566
+        4.0685,
+        4.5911,
+        4.7999,
+        4.8333,
+        5.5403,
+        6.1049,
+        6.0103,
+        6.0172,
+        5.7792
       ]
     }
   },
   "assessment": {
-    "overall_status": "NO_TRIGGER",
-    "detail": "Primary rule passed (T < 35 bp)",
-    "note": "Calibrated curve-only trigger. Diagnostics (bucket mean |\u0394|, 2s10s twist, signed S) do not fire the Slope profitability test on their own.",
-    "outcome": "No Slope profitability test required under calibrated primary rule."
+    "overall_status": "TRIGGERED",
+    "detail": "Primary threshold breach: Weighted |\u0394| T (primary) (T \u2265 25 bp)",
+    "note": "Calibrated curve-only trigger (liability-weighted absolute change T over years 1\u201330). A breach means: run a Slope profitability test (VoNB / Net CSM / CaPM). Bucket/twist/signed rules are diagnostics only.",
+    "outcome": "Triggered on: Weighted |\u0394| T (primary)"
   },
   "triggers": [
     {
       "id": "weighted",
       "label": "Weighted |\u0394| T (primary)",
       "metric": "weighted_abs_change_bp",
-      "threshold_bp": 35.0,
-      "value_bp": 18.95,
-      "status": "PASS",
+      "threshold_bp": 25.0,
+      "value_bp": 25.24,
+      "status": "BREACH",
       "role": "primary"
     },
     {
       "id": "bucket",
       "label": "Largest bucket mean |\u0394| (16-20)",
       "metric": "max_bucket_abs_change_bp",
-      "threshold_bp": 75.0,
-      "value_bp": 34.89,
-      "status": "PASS",
+      "threshold_bp": 40.0,
+      "value_bp": 43.46,
+      "status": "BREACH",
       "role": "diagnostic"
     },
     {
@@ -123,7 +123,7 @@
       "label": "Curve shape / twist (diagnostic)",
       "metric": "abs_twist_2s10s_bp",
       "threshold_bp": 40.0,
-      "value_bp": 4.83,
+      "value_bp": 14.72,
       "status": "PASS",
       "role": "diagnostic"
     },
@@ -132,7 +132,7 @@
       "label": "Signed weighted \u0394 S (direction)",
       "metric": "weighted_signed_change_bp",
       "threshold_bp": null,
-      "value_bp": -16.18,
+      "value_bp": -24.5,
       "status": "NOT_EVALUATED",
       "role": "diagnostic"
     }
@@ -170,8 +170,10 @@
       "date": "2026-03-31",
       "mean_shift_bp": 34.3,
       "weighted_abs_bp": 30.3,
-      "flagged": false,
-      "basis": "archive_consecutive_column_j"
+      "flagged": true,
+      "basis": "archive_consecutive_column_j",
+      "flag_scope": "archive_only",
+      "note": "archive marker T \u2265 25 bp (Fiera consecutive months); not a live rebuilt trigger"
     },
     {
       "date": "2026-04-30",
@@ -201,7 +203,7 @@
       "flagged": true,
       "basis": "archive_consecutive_column_j",
       "flag_scope": "archive_only",
-      "note": "archive marker T \u2265 35 bp (Fiera consecutive months); not a live rebuilt trigger"
+      "note": "archive marker T \u2265 25 bp (Fiera consecutive months); not a live rebuilt trigger"
     },
     {
       "date": "2026-08-31",
@@ -227,7 +229,7 @@
   ],
   "data_quality": {
     "reference_basis": "Fiera 2026-10-30 \u00b7 pricing 2026-09-29",
-    "last_pipeline_run": "2026-11-14T19:37:18-05:00",
+    "last_pipeline_run": "2026-11-20T13:20:01-05:00",
     "pipeline_run_simulated": false,
     "fiera_publications_used": 2,
     "history_publications": 85,
@@ -240,8 +242,8 @@
   "pipeline_runs": [
     {
       "id": "Fiera-20261030-R01",
-      "started_at": "2026-11-14T19:37:18-05:00",
-      "finished_at": "2026-11-14T19:37:18-05:00",
+      "started_at": "2026-11-20T13:20:01-05:00",
+      "finished_at": "2026-11-20T13:20:01-05:00",
       "status": "ok",
       "steps": [
         "load_fiera_history",
@@ -256,29 +258,29 @@
     }
   ],
   "notes": {
-    "chart_reading": "Pricing basis is Fiera column J as of 2026-09-29. Current basis is Canada par as of 2026-10-30. Implied is rebuilt column J as of 2026-10-30 (rf_source=boc_zero_coupon_csv, rf_as_of=2026-10-28). Yields are percent. Deltas are implied \u2212 pricing.",
-    "history_reading": "History chart is archived Fiera column-J pairs only (publication \u2192 next publication). Live KPI T uses the rebuilt path (prior J vs BoC-rebuilt implied) and can differ from the last history point. Markers are archive T \u2265 35 bp, not live rebuilt triggers.",
+    "chart_reading": "Pricing basis is Fiera column J as of 2026-09-29. Current basis is Canada par as of 2026-10-30. Implied is rebuilt column J as of 2026-10-30 (rf_source=boc_zero_coupon_csv, rf_as_of=2026-11-04). Yields are percent. Deltas are implied \u2212 pricing.",
+    "history_reading": "History chart is archived Fiera column-J pairs only (publication \u2192 next publication). Live KPI T uses the rebuilt path (prior J vs BoC-rebuilt implied) and can differ from the last history point. Markers are archive T \u2265 25 bp, not live rebuilt triggers.",
     "sam_feedback": "Trigger is curve-only (no Slope) with one primary measure: liability-weighted |\u0394| T over years 1\u201330. A breach starts a Slope profitability test (VoNB / Net CSM / CaPM). Bucket / twist / signed S are diagnostics only."
   },
   "metrics_computed": {
-    "weighted_abs_change_bp": 18.95,
-    "weighted_signed_change_bp": -16.18,
-    "max_bucket_abs_change_bp": 34.89,
+    "weighted_abs_change_bp": 25.24,
+    "weighted_signed_change_bp": -24.5,
+    "max_bucket_abs_change_bp": 43.46,
     "max_bucket_label": "16-20",
-    "abs_mean_change_bp": 16.56,
-    "max_abs_change_bp": 32.67,
-    "max_maturity": 15,
-    "abs_twist_2s10s_bp": 4.83,
-    "primary_threshold_bp": 35.0,
+    "abs_mean_change_bp": 24.61,
+    "max_abs_change_bp": 46.49,
+    "max_maturity": 5,
+    "abs_twist_2s10s_bp": 14.72,
+    "primary_threshold_bp": 25.0,
     "thresholds_active": true,
     "thresholds_calibrated": true,
     "thresholds_provisional": false
   },
   "decision": {
     "measure": "weighted_abs_change_bp",
-    "threshold_bp": 35.0,
-    "value_bp": 18.95,
-    "status": "NO_TRIGGER",
+    "threshold_bp": 25.0,
+    "value_bp": 25.24,
+    "status": "TRIGGERED",
     "decision_path": "data/decisions/2026-10-30.json"
   },
   "profitability": {

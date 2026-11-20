@@ -198,17 +198,31 @@ EXPECTED_SLOPE_SHEETS = (
 
 def map_result_keys(result_files: Mapping[str, Any]) -> dict[str, str]:
     """
-    Best-effort name alignment. Call once with a real load_results()[curve] dict.
-    Does not invent schemas beyond workbook sheet names.
+    Align workbook sheet names (profitability formulas) to Slope export keys.
+
+    Slope / slope_api REPORTS use tenant filenames such as ``Liabilities by Cell``
+    and ``LICAT by CELL``. The Example Profitability Model uses ``By Cell
+    (Reserves)`` / ``By Cell (LICAT)``. Prefer exact workbook names first, then
+    the live Slope export names from ``slope_api.REPORTS``.
     """
     available = {str(k): str(k) for k in result_files}
     aliases = {
         "Reserves": ("Reserves", "Liabilities"),
         "Cash Flows": ("Cash Flows",),
         "LICAT": ("LICAT",),
-        "By Cell (Reserves)": ("By Cell (Reserves)",),
-        "By Cell (LICAT)": ("By Cell (LICAT)",),
-        "By Cell (CFs)": ("By Cell (CFs)",),
+        "By Cell (Reserves)": (
+            "By Cell (Reserves)",
+            "Liabilities by Cell",
+        ),
+        "By Cell (LICAT)": (
+            "By Cell (LICAT)",
+            "LICAT by CELL",
+            "LICAT by Cell",
+        ),
+        "By Cell (CFs)": (
+            "By Cell (CFs)",
+            "Cash Flows by Cell",
+        ),
         "Model Point Fields": ("Model Point Fields",),
     }
     mapped: dict[str, str] = {}
