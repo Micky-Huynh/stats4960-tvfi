@@ -106,6 +106,20 @@ python3 -m pipeline.lag_bridge_mlr --train --backtest --predict
 
 Memo: `docs/memos/lag-bridge-ridge-pca.md`. Not the `--rebuilt` default until back-test + partner OK.
 
+### Predict → bootstrap lag remedy (experimental)
+
+For a chosen lag interval, run **three separate** tracks — Ridge, PCA-curve, PCA+Ridge — each predicting zeros then IoA-bootstrapping rates:
+
+```bash
+python3 -m pipeline.lag_bridge_bootstrap --from 2026-11-04 --to 2026-11-19
+python3 -m pipeline.lag_bridge_bootstrap --lag-days 16 --latest-only --build-j
+python3 -m pipeline.lag_bridge_bootstrap --xlsx-only --from 2026-11-04 --to 2026-11-19
+```
+
+Artifacts: `data/curves/lag_bootstrap/{ridge,pca,pca_ridge}/` plus multi-sheet
+`lag_bootstrap_curves.xlsx` (predicted zeros + IoA bootstrap for all methods).
+Memo: `docs/memos/lag-bridge-bootstrap.md`.
+
 ### Experimental par bootstrap (IoA / CM1)
 
 Optional pedagogy / sensitivity tool — **not** wired into `--rebuilt` and **not** used to fill BoC lag:
@@ -129,6 +143,7 @@ Memo: `docs/memos/experimental-par-bootstrap.md`. Template: QuantAndFinancial gi
 | `valet_intake.py` | BoC Valet benchmark yields (lag-bridge feed) |
 | `lag_bridge.py` | Shift held BoC zeros by Valet Δ during publish lag (**default ON** for `--rebuilt`) |
 | `lag_bridge_mlr.py` | **Experimental** Ridge / PCA nowcast Valet → BoC zeros (horse-race vs shift) |
+| `lag_bridge_bootstrap.py` | **Experimental** per-model predict → IoA bootstrap over a lag interval (`ridge` / `pca` / `pca_ridge`) |
 | `bootstrap.py` | **Experimental** IoA/CM1 annual par → zero/forward bootstrap (does **not** replace BoC RF) |
 | `snapshot_modes.py` | Fixture vs rebuilt implied-curve branching |
 | `snapshot_history.py` | Archive consecutive-J history rows + rebuilt labeling (no flags in rebuilt) |

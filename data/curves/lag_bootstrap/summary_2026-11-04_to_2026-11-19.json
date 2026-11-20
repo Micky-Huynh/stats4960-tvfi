@@ -1,0 +1,330 @@
+{
+  "interval": {
+    "from": "2026-11-04",
+    "to": "2026-11-19"
+  },
+  "boc_rf_asof": "2026-11-04",
+  "boc_snapshot": "/Users/mickle/Desktop/STATS4960/TVFI/data/risk_free/2026-11-04.json",
+  "feature_mode": "levels_delta",
+  "n_valet_days": 11,
+  "methods": {
+    "ridge": {
+      "days": [
+        {
+          "valet_asof": "2026-11-04",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-04.json",
+          "spot_y1_pct": 2.921926031345597,
+          "spot_y10_pct": 3.8013241575436543,
+          "spot_y30_pct": 4.174774700314397,
+          "fwd_y10_pct": 4.365763762507324
+        },
+        {
+          "valet_asof": "2026-11-05",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-05.json",
+          "spot_y1_pct": 2.887910532357343,
+          "spot_y10_pct": 3.7732515813271488,
+          "spot_y30_pct": 4.155087050037555,
+          "fwd_y10_pct": 4.349016961469365
+        },
+        {
+          "valet_asof": "2026-11-06",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-06.json",
+          "spot_y1_pct": 2.861138817046644,
+          "spot_y10_pct": 3.74600958083064,
+          "spot_y30_pct": 4.125738369647937,
+          "fwd_y10_pct": 4.323011744238281
+        },
+        {
+          "valet_asof": "2026-11-09",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-09.json",
+          "spot_y1_pct": 2.869319910094595,
+          "spot_y10_pct": 3.729931163169615,
+          "spot_y30_pct": 4.114010548646582,
+          "fwd_y10_pct": 4.306839871132939
+        },
+        {
+          "valet_asof": "2026-11-10",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-10.json",
+          "spot_y1_pct": 2.9430314180080472,
+          "spot_y10_pct": 3.8174270126598415,
+          "spot_y30_pct": 4.17342003317744,
+          "fwd_y10_pct": 4.365749505793692
+        },
+        {
+          "valet_asof": "2026-11-12",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-12.json",
+          "spot_y1_pct": 2.988320243543659,
+          "spot_y10_pct": 3.880274413246999,
+          "spot_y30_pct": 4.223530070584433,
+          "fwd_y10_pct": 4.4158828895179525
+        },
+        {
+          "valet_asof": "2026-11-13",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-13.json",
+          "spot_y1_pct": 3.003858067109229,
+          "spot_y10_pct": 3.951673332494951,
+          "spot_y30_pct": 4.2974576153587,
+          "fwd_y10_pct": 4.491964422656847
+        },
+        {
+          "valet_asof": "2026-11-16",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-16.json",
+          "spot_y1_pct": 2.960432479903149,
+          "spot_y10_pct": 3.9091345156641144,
+          "spot_y30_pct": 4.2688405302374095,
+          "fwd_y10_pct": 4.466145973332258
+        },
+        {
+          "valet_asof": "2026-11-17",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-17.json",
+          "spot_y1_pct": 2.960379190658295,
+          "spot_y10_pct": 3.9107613967046255,
+          "spot_y30_pct": 4.279617629488987,
+          "fwd_y10_pct": 4.4736849251525435
+        },
+        {
+          "valet_asof": "2026-11-18",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-18.json",
+          "spot_y1_pct": 2.9617848339495,
+          "spot_y10_pct": 3.899366624495601,
+          "spot_y30_pct": 4.268956425620463,
+          "fwd_y10_pct": 4.462265009106581
+        },
+        {
+          "valet_asof": "2026-11-19",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-19.json",
+          "spot_y1_pct": 2.9581901892936773,
+          "spot_y10_pct": 3.914215886347138,
+          "spot_y30_pct": 4.290086737610101,
+          "fwd_y10_pct": 4.4826240485490665
+        }
+      ],
+      "artifacts": [
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-04.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-05.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-06.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-09.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-10.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-12.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-13.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-16.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-17.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-18.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/2026-11-19.json"
+      ],
+      "latest": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/ridge/latest.json"
+    },
+    "pca": {
+      "days": [
+        {
+          "valet_asof": "2026-11-04",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-04.json",
+          "spot_y1_pct": 3.0667066313306646,
+          "spot_y10_pct": 3.66490714551455,
+          "spot_y30_pct": 3.9873734051856964,
+          "fwd_y10_pct": 4.142760323143513
+        },
+        {
+          "valet_asof": "2026-11-05",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-05.json",
+          "spot_y1_pct": 3.020264448975906,
+          "spot_y10_pct": 3.6326609372349687,
+          "spot_y30_pct": 3.9648448391706377,
+          "fwd_y10_pct": 4.122792162807709
+        },
+        {
+          "valet_asof": "2026-11-06",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-06.json",
+          "spot_y1_pct": 2.975280184408264,
+          "spot_y10_pct": 3.6112873001060897,
+          "spot_y30_pct": 3.9370182327267425,
+          "fwd_y10_pct": 4.103028951940102
+        },
+        {
+          "valet_asof": "2026-11-09",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-09.json",
+          "spot_y1_pct": 2.9924617111573264,
+          "spot_y10_pct": 3.594837494790353,
+          "spot_y30_pct": 3.9230572514706052,
+          "fwd_y10_pct": 4.0834069356121105
+        },
+        {
+          "valet_asof": "2026-11-10",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-10.json",
+          "spot_y1_pct": 3.088708956934413,
+          "spot_y10_pct": 3.684499046102283,
+          "spot_y30_pct": 3.9926096259381163,
+          "fwd_y10_pct": 4.150034382809653
+        },
+        {
+          "valet_asof": "2026-11-12",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-12.json",
+          "spot_y1_pct": 3.1520544967178354,
+          "spot_y10_pct": 3.7445844035177123,
+          "spot_y30_pct": 4.046622810466843,
+          "fwd_y10_pct": 4.20018123115522
+        },
+        {
+          "valet_asof": "2026-11-13",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-13.json",
+          "spot_y1_pct": 3.174618037573198,
+          "spot_y10_pct": 3.8088938335290345,
+          "spot_y30_pct": 4.120375405723991,
+          "fwd_y10_pct": 4.273710910486361
+        },
+        {
+          "valet_asof": "2026-11-16",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-16.json",
+          "spot_y1_pct": 3.114987011212759,
+          "spot_y10_pct": 3.766936240086082,
+          "spot_y30_pct": 4.087511473913651,
+          "fwd_y10_pct": 4.24504547158453
+        },
+        {
+          "valet_asof": "2026-11-17",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-17.json",
+          "spot_y1_pct": 3.1191889173569,
+          "spot_y10_pct": 3.767410875186375,
+          "spot_y30_pct": 4.095097388837349,
+          "fwd_y10_pct": 4.249851485360057
+        },
+        {
+          "valet_asof": "2026-11-18",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-18.json",
+          "spot_y1_pct": 3.121963014274372,
+          "spot_y10_pct": 3.7572800184674495,
+          "spot_y30_pct": 4.084763030655129,
+          "fwd_y10_pct": 4.237995116040727
+        },
+        {
+          "valet_asof": "2026-11-19",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-19.json",
+          "spot_y1_pct": 3.1202318667528246,
+          "spot_y10_pct": 3.767462764128579,
+          "spot_y30_pct": 4.102798445951962,
+          "fwd_y10_pct": 4.255167520688596
+        }
+      ],
+      "artifacts": [
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-04.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-05.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-06.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-09.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-10.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-12.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-13.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-16.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-17.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-18.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/2026-11-19.json"
+      ],
+      "latest": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca/latest.json"
+    },
+    "pca_ridge": {
+      "days": [
+        {
+          "valet_asof": "2026-11-04",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-04.json",
+          "spot_y1_pct": 2.916980342898871,
+          "spot_y10_pct": 3.8005974694077223,
+          "spot_y30_pct": 4.178403996635672,
+          "fwd_y10_pct": 4.3602496823582415
+        },
+        {
+          "valet_asof": "2026-11-05",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-05.json",
+          "spot_y1_pct": 2.8782743441231204,
+          "spot_y10_pct": 3.77192769450219,
+          "spot_y30_pct": 4.158253260686143,
+          "fwd_y10_pct": 4.341933540706511
+        },
+        {
+          "valet_asof": "2026-11-06",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-06.json",
+          "spot_y1_pct": 2.8480005699635615,
+          "spot_y10_pct": 3.7447385962598356,
+          "spot_y30_pct": 4.127882026953516,
+          "fwd_y10_pct": 4.315317229814086
+        },
+        {
+          "valet_asof": "2026-11-09",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-09.json",
+          "spot_y1_pct": 2.8585841687960447,
+          "spot_y10_pct": 3.728949353332785,
+          "spot_y30_pct": 4.116741254310031,
+          "fwd_y10_pct": 4.299203831578335
+        },
+        {
+          "valet_asof": "2026-11-10",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-10.json",
+          "spot_y1_pct": 2.939257020535615,
+          "spot_y10_pct": 3.817670541681694,
+          "spot_y30_pct": 4.177678809423624,
+          "fwd_y10_pct": 4.362222566545015
+        },
+        {
+          "valet_asof": "2026-11-12",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-12.json",
+          "spot_y1_pct": 2.9885992039961016,
+          "spot_y10_pct": 3.8808073918573367,
+          "spot_y30_pct": 4.22884316152652,
+          "fwd_y10_pct": 4.4141529448042505
+        },
+        {
+          "valet_asof": "2026-11-13",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-13.json",
+          "spot_y1_pct": 3.004903473579444,
+          "spot_y10_pct": 3.951215513273717,
+          "spot_y30_pct": 4.302392217524076,
+          "fwd_y10_pct": 4.491106172341386
+        },
+        {
+          "valet_asof": "2026-11-16",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-16.json",
+          "spot_y1_pct": 2.9566873829164724,
+          "spot_y10_pct": 3.9077253891522474,
+          "spot_y30_pct": 4.27266928549892,
+          "fwd_y10_pct": 4.4619485083918775
+        },
+        {
+          "valet_asof": "2026-11-17",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-17.json",
+          "spot_y1_pct": 2.958136242811338,
+          "spot_y10_pct": 3.9090680050584323,
+          "spot_y30_pct": 4.283163483157106,
+          "fwd_y10_pct": 4.469690272912552
+        },
+        {
+          "valet_asof": "2026-11-18",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-18.json",
+          "spot_y1_pct": 2.9600269281992433,
+          "spot_y10_pct": 3.8977554745251037,
+          "spot_y30_pct": 4.272780829235733,
+          "fwd_y10_pct": 4.457502026370852
+        },
+        {
+          "valet_asof": "2026-11-19",
+          "json": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-19.json",
+          "spot_y1_pct": 2.956279945257746,
+          "spot_y10_pct": 3.9121972764790627,
+          "spot_y30_pct": 4.293561369912317,
+          "fwd_y10_pct": 4.4786834343297555
+        }
+      ],
+      "artifacts": [
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-04.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-05.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-06.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-09.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-10.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-12.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-13.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-16.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-17.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-18.json",
+        "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/2026-11-19.json"
+      ],
+      "latest": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/lag_bootstrap/pca_ridge/latest.json"
+    }
+  }
+}

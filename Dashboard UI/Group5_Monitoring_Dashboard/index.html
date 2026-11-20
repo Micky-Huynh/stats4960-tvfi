@@ -61,10 +61,12 @@
     </div>
   </div>
 
-  <dl class="meta-row">
+  <dl class="meta-row meta-row-wide">
     <div><dt>Observation date</dt><dd id="mObs"></dd></div>
     <div><dt>Latest market date</dt><dd id="mMarket"></dd></div>
     <div><dt id="mSourceLabel">Source</dt><dd id="mSource"></dd></div>
+    <div><dt>RF as-of / lag</dt><dd id="mRf"></dd></div>
+    <div><dt>Col H policy</dt><dd id="mPremium"></dd></div>
     <div><dt>Last successful update</dt><dd id="mUpdate"></dd></div>
     <div><dt>Data availability</dt><dd id="mAvail"></dd></div>
   </dl>
@@ -126,6 +128,117 @@
         <p class="kpi-foot" id="kpiStatusNote"></p>
       </article>
     </div>
+
+    <div class="feeds-grid" id="feedsPanel">
+      <article class="card feed-card">
+        <div class="card-head">
+          <h2>Data feeds</h2>
+          <span class="chip" id="feedRfChip">RF</span>
+        </div>
+        <dl class="kv" id="feedRfList"></dl>
+      </article>
+      <article class="card feed-card">
+        <div class="card-head">
+          <h2>Valet lag bridge</h2>
+          <span class="chip" id="feedBridgeChip">—</span>
+        </div>
+        <dl class="kv" id="feedBridgeList"></dl>
+        <div class="anchor-row" id="feedBridgeAnchors" hidden></div>
+      </article>
+      <article class="card feed-card">
+        <div class="card-head">
+          <h2>Trigger &amp; profitability</h2>
+          <span class="chip" id="feedTrigChip">25 / 40</span>
+        </div>
+        <dl class="kv" id="feedTrigList"></dl>
+      </article>
+      <article class="card feed-card">
+        <div class="card-head">
+          <h2>Ridge / PCA nowcast</h2>
+          <span class="chip" id="feedNowcastChip">EXPERIMENTAL</span>
+        </div>
+        <dl class="kv" id="feedNowcastList"></dl>
+        <p class="desc" id="feedNowcastNote">Walk-forward Valet → BoC zeros (not the --rebuilt default).</p>
+      </article>
+    </div>
+
+    <section class="lagboot-section" id="lagBootPanel">
+      <div class="card-head lagboot-head">
+        <div>
+          <h2>Lag-remedy prediction curves</h2>
+          <p class="desc" id="lagBootDesc">Ridge / PCA / PCA+Ridge → IoA bootstrap (experimental; not the --rebuilt default).</p>
+        </div>
+        <div class="lagboot-controls">
+          <span class="chip" id="lagBootChip">EXPERIMENTAL</span>
+          <button class="btn btn-sm" id="btnLagBootXlsx" type="button">⤓ Export Excel</button>
+          <label class="select">
+            <span>View</span>
+            <select id="selLagBootView">
+              <option value="time">By date (tenor)</option>
+              <option value="maturity">By maturity (day)</option>
+            </select>
+          </label>
+          <label class="select" id="lagBootTenorWrap">
+            <span>Tenor</span>
+            <select id="selLagBootTenor">
+              <option value="1">1y</option>
+              <option value="2">2y</option>
+              <option value="5">5y</option>
+              <option value="10" selected>10y</option>
+              <option value="20">20y</option>
+              <option value="30">30y</option>
+            </select>
+          </label>
+          <label class="select">
+            <span>Valet day</span>
+            <select id="selLagBootDay"></select>
+          </label>
+        </div>
+      </div>
+      <div class="feeds-grid" id="lagBootCards">
+        <article class="card feed-card">
+          <div class="card-head">
+            <h2>Ridge → bootstrap</h2>
+            <span class="chip" id="lagBootRidgeChip">—</span>
+          </div>
+          <dl class="kv" id="lagBootRidgeList"></dl>
+        </article>
+        <article class="card feed-card">
+          <div class="card-head">
+            <h2>PCA curve → bootstrap</h2>
+            <span class="chip" id="lagBootPcaChip">—</span>
+          </div>
+          <dl class="kv" id="lagBootPcaList"></dl>
+        </article>
+        <article class="card feed-card">
+          <div class="card-head">
+            <h2>PCA+Ridge → bootstrap</h2>
+            <span class="chip" id="lagBootPcaRidgeChip">—</span>
+          </div>
+          <dl class="kv" id="lagBootPcaRidgeList"></dl>
+        </article>
+        <article class="card feed-card">
+          <div class="card-head">
+            <h2>Interval / refresh</h2>
+            <span class="chip off" id="lagBootMetaChip">INTERVAL</span>
+          </div>
+          <dl class="kv" id="lagBootMetaList"></dl>
+          <p class="desc" id="lagBootMetaNote">Serve from project root to load <span class="mono">data/curves/lag_bootstrap/</span>.</p>
+        </article>
+      </div>
+      <article class="card lagboot-chart-card">
+        <div class="card-head">
+          <div>
+            <h2 id="lagBootChartTitle">Known BoC vs lag predictions</h2>
+            <p class="desc" id="lagBootChartDesc">Last known BoC points through rf_asof; Ridge / PCA / PCA+Ridge fan out past the cutoff. Click legend to toggle · hover for curve name.</p>
+          </div>
+          <div class="legend lagboot-legend" id="lagBootLegend"></div>
+        </div>
+        <div class="chart-wrap" id="lagBootChart">
+          <div class="tip" id="lagBootTip" hidden></div>
+        </div>
+      </article>
+    </section>
 
     <div class="grid-main">
       <article class="card">
@@ -261,10 +374,10 @@
 <footer class="method">
   <div class="method-head">
     <span class="eyebrow">Methodology &amp; governance</span>
-    <span>TVFI · Internal actuarial use · Illustrative design v1.0</span>
+    <span>TVFI · Internal actuarial use · Design v1.1</span>
   </div>
-  <p>Python pipeline builds this snapshot: archived Fiera curves (and optional BoC-rebuilt implied), liability-weighted trigger T ≥ 35 bp (diagnostics: bucket / twist / signed S), decision log. Calibration: <span class="mono">docs/memos/trigger-calibration.md</span>. Slope profitability remains a separate step after a primary breach.</p>
-  <p class="strong">Monitoring may warrant further profitability analysis. This dashboard does not recommend repricing; calculation and trigger validation are separate.</p>
+  <p>Python pipeline builds this snapshot: BoC zeros (primary RF) + held Fiera column H → rebuilt column J; optional Valet key-rate lag bridge during BoC publish lag; liability-weighted trigger <b>T ≥ 25 bp</b> (bucket diagnostic 40 bp; twist / signed S). Calibration: <span class="mono">docs/memos/trigger-calibration.md</span> · lag bridge: <span class="mono">docs/memos/valet-lag-bridge.md</span>. Ridge/PCA nowcast and predict→IoA-bootstrap lag tracks are experimental (<span class="mono">docs/memos/lag-bridge-ridge-pca.md</span>, <span class="mono">docs/memos/lag-bridge-bootstrap.md</span>). Slope insurer profitability (VoNB / Net CSM / CaPM) remains a separate step after a primary breach.</p>
+  <p class="strong">Monitoring may warrant further profitability analysis. This dashboard does not recommend repricing; calculation and trigger validation are separate. Metrics are insurer view — not TVFI P&amp;L.</p>
   <p class="source-line">Loaded snapshot: <span class="mono" id="loadedFrom"></span></p>
 </footer>
 

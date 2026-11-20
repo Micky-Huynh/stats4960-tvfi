@@ -1,0 +1,242 @@
+{
+  "experimental": true,
+  "freshness": "valet_business_daily_not_clock_hourly",
+  "trigger_bp": 25.0,
+  "feature_mode": "levels_delta",
+  "min_train": 20,
+  "window_days": 400,
+  "n_aligned": 238,
+  "date_from": "2025-11-19",
+  "date_to": "2026-11-04",
+  "best_method": "ridge",
+  "overall_verdict": "PASS \u2014 predict\u2192bootstrap tracks BoC; usable lag RF strip",
+  "summary": {
+    "ridge": {
+      "n": 218,
+      "mean_pred_zero_rmse_bp": 0.9504936097679627,
+      "median_pred_zero_rmse_bp": 0.8748721404598666,
+      "mean_boot_zero_rmse_bp": 0.9504936097679596,
+      "median_boot_zero_rmse_bp": 0.8748721404599975,
+      "mean_boot_fwd_rmse_bp": 2.7569273410907176,
+      "median_boot_fwd_rmse_bp": 2.418070054706401,
+      "mean_hold_zero_rmse_bp": 3.406765271116005,
+      "median_hold_zero_rmse_bp": 2.866490233346238,
+      "mean_roundtrip_zero_rmse_bp": 0.0,
+      "peak_max_abs_boot_zero_bp": 9.34410525096352,
+      "pct_days_beats_hold": 86.23853211009174,
+      "trigger_bp": 25.0,
+      "usable_vs_trigger": true,
+      "beats_hold_on_mean": true,
+      "verdict": "PASS \u2014 predict\u2192bootstrap tracks BoC; usable lag RF strip"
+    },
+    "pca_ridge": {
+      "n": 218,
+      "mean_pred_zero_rmse_bp": 0.9929128855093328,
+      "median_pred_zero_rmse_bp": 0.8980923729984114,
+      "mean_boot_zero_rmse_bp": 0.9929128855093325,
+      "median_boot_zero_rmse_bp": 0.8980923729984326,
+      "mean_boot_fwd_rmse_bp": 3.0204682872741815,
+      "median_boot_fwd_rmse_bp": 2.6629760806536855,
+      "mean_hold_zero_rmse_bp": 3.406765271116005,
+      "median_hold_zero_rmse_bp": 2.866490233346238,
+      "mean_roundtrip_zero_rmse_bp": 0.0,
+      "peak_max_abs_boot_zero_bp": 9.231101573905498,
+      "pct_days_beats_hold": 86.69724770642202,
+      "trigger_bp": 25.0,
+      "usable_vs_trigger": true,
+      "beats_hold_on_mean": true,
+      "verdict": "PASS \u2014 predict\u2192bootstrap tracks BoC; usable lag RF strip"
+    },
+    "pca": {
+      "n": 218,
+      "mean_pred_zero_rmse_bp": 16.803028019462236,
+      "median_pred_zero_rmse_bp": 16.766206383068397,
+      "mean_boot_zero_rmse_bp": 16.803028019462243,
+      "median_boot_zero_rmse_bp": 16.766206383068464,
+      "mean_boot_fwd_rmse_bp": 22.24439554423042,
+      "median_boot_fwd_rmse_bp": 22.559719755616037,
+      "mean_hold_zero_rmse_bp": 3.406765271116005,
+      "median_hold_zero_rmse_bp": 2.866490233346238,
+      "mean_roundtrip_zero_rmse_bp": 0.0,
+      "peak_max_abs_boot_zero_bp": 24.57069139094825,
+      "pct_days_beats_hold": 0.0,
+      "trigger_bp": 25.0,
+      "usable_vs_trigger": false,
+      "beats_hold_on_mean": false,
+      "verdict": "FAIL \u2014 predict\u2192bootstrap does not track BoC usefully"
+    }
+  },
+  "tail": {
+    "ridge": [
+      {
+        "asof": "2026-10-29",
+        "method": "ridge",
+        "pred_zero_rmse_bp": 1.647323628783385,
+        "boot_zero_rmse_bp": 1.6473236287832538,
+        "boot_fwd_rmse_bp": 5.514314102769936,
+        "hold_zero_rmse_bp": 2.494757707035648,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 5.785719360569264,
+        "beats_hold": true
+      },
+      {
+        "asof": "2026-10-30",
+        "method": "ridge",
+        "pred_zero_rmse_bp": 1.259748519271521,
+        "boot_zero_rmse_bp": 1.2597485192714981,
+        "boot_fwd_rmse_bp": 3.8672911835889408,
+        "hold_zero_rmse_bp": 5.257924866109115,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 6.320711920773103,
+        "beats_hold": true
+      },
+      {
+        "asof": "2026-11-02",
+        "method": "ridge",
+        "pred_zero_rmse_bp": 1.7101245839751282,
+        "boot_zero_rmse_bp": 1.7101245839750827,
+        "boot_fwd_rmse_bp": 4.149790199440015,
+        "hold_zero_rmse_bp": 4.014163528061558,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 7.954503622114029,
+        "beats_hold": true
+      },
+      {
+        "asof": "2026-11-03",
+        "method": "ridge",
+        "pred_zero_rmse_bp": 1.7860473070315488,
+        "boot_zero_rmse_bp": 1.7860473070316938,
+        "boot_fwd_rmse_bp": 4.804267906542481,
+        "hold_zero_rmse_bp": 2.442968712822117,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 9.19024420297454,
+        "beats_hold": true
+      },
+      {
+        "asof": "2026-11-04",
+        "method": "ridge",
+        "pred_zero_rmse_bp": 1.5077198603522448,
+        "boot_zero_rmse_bp": 1.5077198603520396,
+        "boot_fwd_rmse_bp": 3.8936504428885605,
+        "hold_zero_rmse_bp": 5.714491993174147,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 7.7858926428775455,
+        "beats_hold": true
+      }
+    ],
+    "pca_ridge": [
+      {
+        "asof": "2026-10-29",
+        "method": "pca_ridge",
+        "pred_zero_rmse_bp": 1.8137064910824556,
+        "boot_zero_rmse_bp": 1.813706491082583,
+        "boot_fwd_rmse_bp": 6.458344406799746,
+        "hold_zero_rmse_bp": 2.494757707035648,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 6.588669685616555,
+        "beats_hold": true
+      },
+      {
+        "asof": "2026-10-30",
+        "method": "pca_ridge",
+        "pred_zero_rmse_bp": 1.453876756266073,
+        "boot_zero_rmse_bp": 1.4538767562660753,
+        "boot_fwd_rmse_bp": 4.795034312943625,
+        "hold_zero_rmse_bp": 5.257924866109115,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 7.286089256786088,
+        "beats_hold": true
+      },
+      {
+        "asof": "2026-11-02",
+        "method": "pca_ridge",
+        "pred_zero_rmse_bp": 1.8655455012032212,
+        "boot_zero_rmse_bp": 1.8655455012032411,
+        "boot_fwd_rmse_bp": 4.856969134231957,
+        "hold_zero_rmse_bp": 4.014163528061558,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 8.727586512522478,
+        "beats_hold": true
+      },
+      {
+        "asof": "2026-11-03",
+        "method": "pca_ridge",
+        "pred_zero_rmse_bp": 1.8077827122438064,
+        "boot_zero_rmse_bp": 1.8077827122438679,
+        "boot_fwd_rmse_bp": 5.317859499121013,
+        "hold_zero_rmse_bp": 2.442968712822117,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 9.231101573905498,
+        "beats_hold": true
+      },
+      {
+        "asof": "2026-11-04",
+        "method": "pca_ridge",
+        "pred_zero_rmse_bp": 1.6806541256295149,
+        "boot_zero_rmse_bp": 1.680654125629539,
+        "boot_fwd_rmse_bp": 4.79412979928439,
+        "hold_zero_rmse_bp": 5.714491993174147,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 8.607898482346776,
+        "beats_hold": true
+      }
+    ],
+    "pca": [
+      {
+        "asof": "2026-10-29",
+        "method": "pca",
+        "pred_zero_rmse_bp": 15.085290639606677,
+        "boot_zero_rmse_bp": 15.085290639606622,
+        "boot_fwd_rmse_bp": 19.28721073290327,
+        "hold_zero_rmse_bp": 2.494757707035648,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 19.106301596456543,
+        "beats_hold": false
+      },
+      {
+        "asof": "2026-10-30",
+        "method": "pca",
+        "pred_zero_rmse_bp": 14.947848674731299,
+        "boot_zero_rmse_bp": 14.947848674731164,
+        "boot_fwd_rmse_bp": 19.219550759252897,
+        "hold_zero_rmse_bp": 5.257924866109115,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 18.197632695806654,
+        "beats_hold": false
+      },
+      {
+        "asof": "2026-11-02",
+        "method": "pca",
+        "pred_zero_rmse_bp": 15.224037626457356,
+        "boot_zero_rmse_bp": 15.224037626457324,
+        "boot_fwd_rmse_bp": 19.909697740427983,
+        "hold_zero_rmse_bp": 4.014163528061558,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 18.76782059071047,
+        "beats_hold": false
+      },
+      {
+        "asof": "2026-11-03",
+        "method": "pca",
+        "pred_zero_rmse_bp": 14.883853215133584,
+        "boot_zero_rmse_bp": 14.883853215133634,
+        "boot_fwd_rmse_bp": 19.19748379822043,
+        "hold_zero_rmse_bp": 2.442968712822117,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 18.2539758981215,
+        "beats_hold": false
+      },
+      {
+        "asof": "2026-11-04",
+        "method": "pca",
+        "pred_zero_rmse_bp": 15.041205001364126,
+        "boot_zero_rmse_bp": 15.041205001364087,
+        "boot_fwd_rmse_bp": 19.734386867215093,
+        "hold_zero_rmse_bp": 5.714491993174147,
+        "roundtrip_zero_rmse_bp": 0.0,
+        "max_abs_boot_zero_bp": 18.37158550077156,
+        "beats_hold": false
+      }
+    ]
+  }
+}

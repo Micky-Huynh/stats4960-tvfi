@@ -95,6 +95,21 @@ Statistical horse-race vs keyed shift — **not** default yet:
 - Memo: `docs/memos/lag-bridge-ridge-pca.md`
 - First back-test (~1y BoC panel, walk-forward): Ridge mean RMSE **~1.0 bp** vs hold **~3.4 bp**; PCA nearly identical (~1.05 bp). Live prediction ≈ keyed shift (~2.4 bp RMSE vs shift).
 
+### Experimental: Predict → IoA bootstrap lag remedy (2026-11-20)
+
+Three **separate** tracks over a user-chosen lag interval (Ridge / PCA-curve / PCA+Ridge → IoA bootstrap):
+
+- Code: `pipeline/lag_bridge_bootstrap.py` (`--from` / `--to` or `--lag-days`)
+- Memo: `docs/memos/lag-bridge-bootstrap.md`
+- Artifacts: `data/curves/lag_bootstrap/{ridge,pca,pca_ridge}/` + interval summary + **`lag_bootstrap_curves.xlsx`**
+- Optional `--build-j` rebuilds Slope col J from each bootstrapped RF + held H
+- Team sync: ~1 bp prediction error **accepted** vs 25 bp trigger (Granola post-Nathan)
+
+### Post-Nathan actions (from team sync)
+- **Ethan** → finalize PV-basis liability weights; **Micky** implements; **Allison** regenerates report (fix formula as equation)
+- **Sawyer** → four profitability scenarios to Nathan Mon 23 Nov
+- Deadlines: report **30 Nov noon**; presentation **1 Dec**
+
 ## Experimental: IoA annual par bootstrap (2026-11-20)
 
 Pedagogy / Fiera RF check — **not** the lag fill (use Valet bridge above).

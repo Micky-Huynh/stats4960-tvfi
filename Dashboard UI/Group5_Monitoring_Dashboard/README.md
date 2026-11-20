@@ -2,7 +2,7 @@
 
 Local prototype of the TVFI Secured Retirement yield curve monitoring dashboard. It reads `monitor_snapshot.json` (from the pipeline or a local file) and renders Overview + Maturity Analysis.
 
-When served from the TVFI project root, it loads the **pipeline** snapshot at `../../data/monitor/monitor_snapshot.json`. The calibrated weighted trigger (T ≥ 25 bp) is evaluated by the pipeline and displayed here — see `docs/memos/trigger-calibration.md`. Opening `index.html` from disk falls back to an embedded placeholder only.
+When served from the TVFI project root, it loads the **pipeline** snapshot at `../../data/monitor/monitor_snapshot.json`, optional Ridge/PCA nowcast results, and lag-remedy curves from `../../data/curves/lag_bootstrap/`. Overview includes feeds + a **Lag-remedy prediction curves** panel: last known BoC points through `rf_asof` (then stop), with Ridge / PCA / PCA+Ridge (and production Valet shift) fanning out past the cutoff from that anchor; click legend to toggle; hover for curve name; View = by date (tenor) or by maturity; **Export Excel** downloads `lag_bootstrap_curves.xlsx` (all predicted zeros + IoA bootstrap sheets). Regenerate with `python3 -m pipeline.lag_bridge_bootstrap --xlsx-only`. See `docs/memos/trigger-calibration.md`, `valet-lag-bridge.md`, `lag-bridge-ridge-pca.md`, `lag-bridge-bootstrap.md`. Opening `index.html` from disk falls back to an embedded placeholder only.
 
 ## What's in the folder
 
@@ -63,7 +63,8 @@ See `monitor_snapshot.json` for a full example. The main parts:
 |---|---|
 | `snapshot_id`, `schema_version` | Identifiers shown in the audit trail |
 | `is_illustrative` | `true` shows the "Illustrative data" banner and demo labels; set `false` for real data |
-| `meta` | Observation/market/pricing dates, source, last update time, data availability, currency |
+| `meta` | Observation/market/pricing dates, source, RF as-of / publish lag, Col H policy, optional `lag_bridge` (Valet keyed shift), currency |
+| `decision` / `profitability` | Primary T decision + Slope profitability hook (`not_run` until exports) |
 | `maturities` | Display maturity nodes in years (e.g. 9 nodes for charts/table) |
 | `curves.pricing_basis` / `current_basis` / `implied` | Each has `label`, `as_of` and `yields` (in %, same length as `maturities`; use `null` for a missing value) |
 | `assessment` | `overall_status`: `UNASSESSED`, `NO_TRIGGER` or `TRIGGERED`, plus explanatory text |

@@ -26,6 +26,24 @@ const CONFIG = {
   // FUTURE (Cloudflare): replace with the Worker endpoint, e.g.
   //   'https://<worker-name>.<account>.workers.dev/monitor_snapshot.json'
   snapshotUrl: '../../data/monitor/monitor_snapshot.json',
+  // Optional experimental Ridge/PCA nowcast summary (from pipeline.lag_bridge_mlr).
+  nowcastUrl: '../../data/curves/lag_bridge_mlr_levels_delta_results.json',
+  // Predict → IoA bootstrap lag remedy (pipeline.lag_bridge_bootstrap).
+  lagBootstrapSummaryUrl: '../../data/curves/lag_bootstrap/summary_2026-11-04_to_2026-11-19.json',
+  lagBootstrapMethodUrl: (method, day) =>
+    `../../data/curves/lag_bootstrap/${method}/${day}.json`,
+  lagBootstrapLatestUrl: (method) =>
+    `../../data/curves/lag_bootstrap/${method}/latest.json`,
+  // Multi-sheet Excel of all predicted zeros + IoA bootstrap curves.
+  lagBootstrapXlsxUrl: '../../data/curves/lag_bootstrap/lag_bootstrap_curves.xlsx',
+  // Official held BoC annual zeros (dated snaps) for the "current" curve cutoff.
+  bocSnapshotsUrls: [
+    '../../data/risk_free/2026-10-21.json',
+    '../../data/risk_free/2026-10-28.json',
+    '../../data/risk_free/2026-11-04.json',
+  ],
+  // Production keyed-shift RF (continues past rf_asof).
+  productionShiftUrl: '../../data/curves/lag_bridge_2026-11-04_applied.json',
 };
 
 // Keep in sync with monitor_snapshot.json. Placeholder values only — no real TVFI data.
@@ -159,10 +177,39 @@ const TRIGGER_STATUS = {
   BREACH: { label: 'Triggered', cls: 'breach' },
 };
 
+const LAG_BOOT_METHODS = ['ridge', 'pca', 'pca_ridge'];
+
+const LAG_BOOT_SERIES_META = {
+  current: { label: 'Known BoC (held)', color: '#6f8696', dashed: false },
+  production: { label: 'Production Valet shift', color: '#5b6b7c', dashed: true },
+  ridge: { label: 'Ridge predicted', color: '#2c7a71', dashed: false },
+  pca: { label: 'PCA predicted', color: '#b07a28', dashed: false },
+  pca_ridge: { label: 'PCA+Ridge predicted', color: '#213851', dashed: false },
+  ridge_fwd: { label: 'Ridge fwd', color: '#2c7a71', dashed: true },
+  pca_fwd: { label: 'PCA fwd', color: '#b07a28', dashed: true },
+  pca_ridge_fwd: { label: 'PCA+Ridge fwd', color: '#213851', dashed: true },
+};
+
 const state = {
   snap: null,
   d: null,          // derived metrics
   source: '',
+  nowcast: null,    // optional lag_bridge_mlr results JSON
+  lagBootstrap: null, // { summary, byMethod, selectedDay, dayCache, days }
+  bocHistory: [],   // [{ asof, zeros: {1..30} }] sorted
+  productionShift: null, // lag_bridge applied JSON
+  lagBootView: 'time',   // 'time' | 'maturity'
+  lagBootTenor: 10,
+  lagBootVisible: {
+    current: true,
+    production: true,
+    ridge: true,
+    pca: true,
+    pca_ridge: true,
+    ridge_fwd: false,
+    pca_fwd: false,
+    pca_ridge_fwd: false,
+  },
   selected: null,   // selected maturity (years)
   hover: null,      // hovered maturity on the curve chart
   curve: 'all',
@@ -393,8 +440,131 @@ function applySnapshot(snap, source) {
   return true;
 }
 
+async function loadNowcast() {
+  try {
+    const res = await fetch(CONFIG.nowcastUrl, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    state.nowcast = await res.json();
+  } catch (err) {
+    state.nowcast = null;
+  }
+}
+
+async function fetchJsonQuiet(url) {
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+}
+
+function lagBootstrapDaysFromSummary(summary) {
+  const days = new Set();
+  LAG_BOOT_METHODS.forEach((m) => {
+    const block = (summary.methods || {})[m];
+    (block && block.days ? block.days : []).forEach((d) => {
+      if (d && d.valet_asof && !d.error) days.add(d.valet_asof);
+    });
+  });
+  return Array.from(days).sort();
+}
+
+async function loadLagBootstrapDay(day) {
+  if (!state.lagBootstrap) return null;
+  if (!state.lagBootstrap.dayCache) state.lagBootstrap.dayCache = {};
+  if (state.lagBootstrap.dayCache[day]) return state.lagBootstrap.dayCache[day];
+  const byMethod = {};
+  await Promise.all(
+    LAG_BOOT_METHODS.map(async (method) => {
+      const payload = await fetchJsonQuiet(CONFIG.lagBootstrapMethodUrl(method, day));
+      if (payload) byMethod[method] = payload;
+    })
+  );
+  state.lagBootstrap.dayCache[day] = byMethod;
+  return byMethod;
+}
+
+async function loadBocHistory() {
+  const rows = [];
+  await Promise.all(
+    (CONFIG.bocSnapshotsUrls || []).map(async (url) => {
+      const snap = await fetchJsonQuiet(url);
+      if (!snap || !Array.isArray(snap.annual_zeros_1_30)) return;
+      const zeros = {};
+      snap.annual_zeros_1_30.forEach((z, i) => {
+        zeros[i + 1] = Number(z);
+      });
+      rows.push({
+        asof: String(snap.rf_asof || ''),
+        zeros,
+        publish_lag_days: (snap.gaps && snap.gaps.publish_lag_days) || null,
+      });
+    })
+  );
+  rows.sort((a, b) => (a.asof < b.asof ? -1 : a.asof > b.asof ? 1 : 0));
+  state.bocHistory = rows.filter((r) => r.asof);
+}
+
+async function loadProductionShift() {
+  state.productionShift = await fetchJsonQuiet(CONFIG.productionShiftUrl);
+}
+
+async function loadLagBootstrap() {
+  await Promise.all([loadBocHistory(), loadProductionShift()]);
+
+  const summary = await fetchJsonQuiet(CONFIG.lagBootstrapSummaryUrl);
+  if (!summary) {
+    // Fall back to latest.json per method if summary missing
+    const byMethod = {};
+    await Promise.all(
+      LAG_BOOT_METHODS.map(async (method) => {
+        const payload = await fetchJsonQuiet(CONFIG.lagBootstrapLatestUrl(method));
+        if (payload) byMethod[method] = payload;
+      })
+    );
+    if (!Object.keys(byMethod).length) {
+      state.lagBootstrap = null;
+      return;
+    }
+    const day =
+      (byMethod.ridge && byMethod.ridge.valet_asof) ||
+      (byMethod.pca_ridge && byMethod.pca_ridge.valet_asof) ||
+      (byMethod.pca && byMethod.pca.valet_asof) ||
+      null;
+    state.lagBootstrap = {
+      summary: null,
+      byMethod,
+      selectedDay: day,
+      dayCache: day ? { [day]: byMethod } : {},
+      days: day ? [day] : [],
+    };
+    return;
+  }
+
+  const days = lagBootstrapDaysFromSummary(summary);
+  const selectedDay = days.length ? days[days.length - 1] : null;
+  state.lagBootstrap = {
+    summary,
+    byMethod: {},
+    selectedDay,
+    dayCache: {},
+    days,
+  };
+  // Prefetch every Valet day so the time-series view has full history.
+  await Promise.all(days.map((d) => loadLagBootstrapDay(d)));
+  if (selectedDay) {
+    state.lagBootstrap.byMethod =
+      state.lagBootstrap.dayCache[selectedDay] ||
+      (await loadLagBootstrapDay(selectedDay));
+  }
+}
+
 async function loadInitialSnapshot() {
   // FUTURE (Cloudflare): this fetch will hit the Worker URL instead of a local file.
+  await loadNowcast();
+  await loadLagBootstrap();
   try {
     const res = await fetch(CONFIG.snapshotUrl, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -443,6 +613,8 @@ function selectMaturity(m) {
 function render() {
   renderHeader();
   renderKpis();
+  renderFeeds();
+  renderLagBootstrap();
   renderCurveChart();
   renderBarChart();
   renderTriggers();
@@ -451,10 +623,860 @@ function render() {
   renderMaturity();
 }
 
+function kvHtml(rows) {
+  return rows
+    .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v == null || v === '' ? '—' : v}</dd>`)
+    .join('');
+}
+
+function renderFeeds() {
+  const s = state.snap;
+  const m = s.meta || {};
+  const bridge = m.lag_bridge || {};
+  const mc = s.metrics_computed || {};
+  const decision = s.decision || {};
+  const profit = s.profitability || {};
+  const thrPrimary = isNum(mc.primary_threshold_bp)
+    ? mc.primary_threshold_bp
+    : (isNum(decision.threshold_bp) ? decision.threshold_bp : 25);
+  const thrBucket = (() => {
+    const t = (s.triggers || []).find((x) => x.id === 'bucket');
+    return t && isNum(t.threshold_bp) ? t.threshold_bp : 40;
+  })();
+
+  // --- Data feeds ---
+  const rfChip = $('#feedRfChip');
+  const rfSrc = m.rf_source || '—';
+  rfChip.textContent = String(rfSrc).includes('valet') ? 'BoC + Valet' : (String(rfSrc).startsWith('boc') ? 'BoC RF' : 'RF');
+  $('#feedRfList').innerHTML = kvHtml([
+    ['RF source', esc(rfSrc)],
+    ['RF as-of', esc(fmtDate(m.rf_as_of) || '—')],
+    [
+      'Publish lag',
+      isNum(m.rf_publish_lag_days) ? `${m.rf_publish_lag_days}d (calendar vs rf_asof)` : '—',
+    ],
+    [
+      'Obs − RF gap',
+      isNum(m.obs_rf_calendar_gap_days) ? `${m.obs_rf_calendar_gap_days}d` : '—',
+    ],
+    ['Effective RF', esc(m.rf_effective_as_of || m.rf_as_of || '—')],
+    ['Col H policy', esc(m.premium_policy || '—')],
+    ['H / premium as-of', esc(fmtDate(m.premium_as_of) || '—')],
+    ['Curve mode', esc(m.curve_mode || '—')],
+  ]);
+
+  // --- Lag bridge ---
+  const applied = !!bridge.applied;
+  const bChip = $('#feedBridgeChip');
+  bChip.textContent = applied ? 'ON' : (bridge.enabled === false ? 'OFF' : 'SKIPPED');
+  bChip.className = `chip ${applied ? 'on' : 'off'}`;
+  const anchorBp = bridge.anchor_delta_bp || {};
+  const anchorKeys = Object.keys(anchorBp).sort((a, b) => Number(a) - Number(b));
+  $('#feedBridgeList').innerHTML = kvHtml([
+    ['Method', esc(bridge.method || '—')],
+    ['Reason', esc(bridge.reason || '—')],
+    ['Valet base → live', applied
+      ? `${esc(fmtDate(bridge.valet_base_asof))} → ${esc(fmtDate(bridge.valet_live_asof))}`
+      : '—'],
+    [
+      'Max |Δ|',
+      applied && isNum(bridge.max_abs_shift_bp) ? `${Number(bridge.max_abs_shift_bp).toFixed(1)} bp` : '—',
+    ],
+    [
+      'Mean |Δ|',
+      applied && isNum(bridge.mean_abs_shift_bp) ? `${Number(bridge.mean_abs_shift_bp).toFixed(1)} bp` : '—',
+    ],
+  ]);
+  const anchorsEl = $('#feedBridgeAnchors');
+  if (applied && anchorKeys.length) {
+    anchorsEl.hidden = false;
+    anchorsEl.innerHTML = anchorKeys.map((k) => {
+      const v = Number(anchorBp[k]);
+      const cls = v >= 0 ? 'pos' : 'neg';
+      const sign = v >= 0 ? '+' : '';
+      return `<span class="anchor-pill ${cls}">${esc(k)}y ${sign}${v.toFixed(1)} bp</span>`;
+    }).join('');
+  } else {
+    anchorsEl.hidden = true;
+    anchorsEl.innerHTML = '';
+  }
+
+  // --- Trigger & profitability ---
+  $('#feedTrigChip').textContent = `T≥${thrPrimary} · bucket ${thrBucket}`;
+  const tVal = isNum(decision.value_bp)
+    ? decision.value_bp
+    : (isNum(mc.weighted_abs_change_bp) ? mc.weighted_abs_change_bp : null);
+  $('#feedTrigList').innerHTML = kvHtml([
+    ['Primary rule', `weighted |Δ| T ≥ ${thrPrimary} bp`],
+    ['Bucket diagnostic', `max bucket mean |Δ| ≥ ${thrBucket} bp (does not fire alone)`],
+    ['Decision', esc(decision.status || (s.assessment || {}).overall_status || '—')],
+    ['T (live)', isNum(tVal) ? `${Number(tVal).toFixed(2)} bp` : '—'],
+    [
+      'Bucket (live)',
+      isNum(mc.max_bucket_abs_change_bp)
+        ? `${Number(mc.max_bucket_abs_change_bp).toFixed(2)} bp${mc.max_bucket_label ? ` · ${esc(mc.max_bucket_label)}` : ''}`
+        : '—',
+    ],
+    ['Profitability', esc(profit.status || 'not_run')],
+    [
+      'Export',
+      profit.summary && profit.summary.export_path
+        ? `<span class="mono">${esc(profit.summary.export_path)}</span>`
+        : '—',
+    ],
+  ]);
+
+  // --- Ridge / PCA nowcast (optional companion JSON) ---
+  renderNowcast(state.nowcast);
+}
+
+function renderNowcast(nowcast) {
+  const list = $('#feedNowcastList');
+  const chip = $('#feedNowcastChip');
+  const note = $('#feedNowcastNote');
+  if (!nowcast || !nowcast.methods) {
+    chip.textContent = 'EXPERIMENTAL';
+    chip.className = 'chip';
+    list.innerHTML = kvHtml([
+      ['Status', 'No nowcast results loaded'],
+      ['How to refresh', '<span class="mono">python3 -m pipeline.lag_bridge_mlr --train --backtest --predict</span>'],
+    ]);
+    note.textContent = 'Walk-forward Valet → BoC zeros (not the --rebuilt default). Serve from project root to load results JSON.';
+    return;
+  }
+  const ridge = (nowcast.methods.ridge || {}).backtest_summary || {};
+  const pca = (nowcast.methods.pca || {}).backtest_summary || {};
+  const ridgeLive = ((nowcast.methods.ridge || {}).live_predict || {}).meta || {};
+  chip.textContent = 'LOADED';
+  chip.className = 'chip on';
+  list.innerHTML = kvHtml([
+    ['Feature mode', esc(nowcast.feature_mode || '—')],
+    [
+      'Ridge walk-forward',
+      isNum(ridge.mean_rmse_bp)
+        ? `mean RMSE ${Number(ridge.mean_rmse_bp).toFixed(2)} bp (n=${ridge.n || '—'})`
+        : '—',
+    ],
+    [
+      'PCA walk-forward',
+      isNum(pca.mean_rmse_bp)
+        ? `mean RMSE ${Number(pca.mean_rmse_bp).toFixed(2)} bp (n=${pca.n || '—'})`
+        : '—',
+    ],
+    [
+      'Hold baseline',
+      isNum(ridge.hold_mean_rmse_bp)
+        ? `mean RMSE ${Number(ridge.hold_mean_rmse_bp).toFixed(2)} bp`
+        : (isNum(pca.hold_mean_rmse_bp) ? `mean RMSE ${Number(pca.hold_mean_rmse_bp).toFixed(2)} bp` : '—'),
+    ],
+    [
+      'Live Valet',
+      ridgeLive.valet_live_asof
+        ? `${esc(fmtDate(ridgeLive.boc_rf_asof))} RF ← Valet ${esc(fmtDate(ridgeLive.valet_live_asof))}`
+        : '—',
+    ],
+  ]);
+  note.textContent = 'Experimental horse-race vs keyed Valet shift. Hold Fiera H unchanged; RF-only nowcast.';
+}
+
+const LAG_BOOT_UI = [
+  { key: 'ridge', label: 'Ridge', chip: '#lagBootRidgeChip', list: '#lagBootRidgeList', cls: 'lg-ridge', color: '#2c7a71' },
+  { key: 'pca', label: 'PCA curve', chip: '#lagBootPcaChip', list: '#lagBootPcaList', cls: 'lg-pca', color: '#b07a28' },
+  { key: 'pca_ridge', label: 'PCA+Ridge', chip: '#lagBootPcaRidgeChip', list: '#lagBootPcaRidgeList', cls: 'lg-pca-ridge', color: '#213851' },
+];
+
+function lagBootSpotPct(payload, year) {
+  if (!payload) return null;
+  const rows = payload.predicted_zeros_annual_effective || [];
+  const hit = rows.find((r) => Number(r.year) === year);
+  if (hit && isNum(hit.zero)) return Number(hit.zero) * 100;
+  const boot = (payload.bootstrap || []).find((r) => Number(r.year) === year);
+  if (boot && isNum(boot.zero_annual_effective)) return Number(boot.zero_annual_effective) * 100;
+  return null;
+}
+
+function lagBootFwdPct(payload, year) {
+  if (!payload) return null;
+  const boot = (payload.bootstrap || []).find((r) => Number(r.year) === year);
+  if (boot && isNum(boot.forward_1y)) return Number(boot.forward_1y) * 100;
+  return null;
+}
+
+function bocHistorySpotPct(snap, year) {
+  if (!snap) return null;
+  // loadBocHistory stores { asof, zeros: {1..30} }; raw BoC JSON uses annual_zeros_1_30[].
+  if (snap.zeros && isNum(snap.zeros[year])) {
+    return Number(snap.zeros[year]) * 100;
+  }
+  const arr = snap.annual_zeros_1_30 || [];
+  const idx = year - 1;
+  if (idx < 0 || idx >= arr.length) return null;
+  const v = arr[idx];
+  return isNum(v) ? Number(v) * 100 : null;
+}
+
+function bocHistoryAsof(snap) {
+  if (!snap) return null;
+  return snap.asof || snap.rf_asof || null;
+}
+
+function productionShiftSpotPct(year) {
+  const ps = state.productionShift;
+  if (!ps || !Array.isArray(ps.annual_zeros_1_30)) return null;
+  const idx = year - 1;
+  if (idx < 0 || idx >= ps.annual_zeros_1_30.length) return null;
+  const v = ps.annual_zeros_1_30[idx];
+  return isNum(v) ? Number(v) * 100 : null;
+}
+
+function lagBootRfAsOf() {
+  const lb = state.lagBootstrap;
+  const summary = (lb && lb.summary) || {};
+  const byMethod = (lb && lb.byMethod) || {};
+  const sample = byMethod.ridge || byMethod.pca_ridge || byMethod.pca || {};
+  return (
+    summary.boc_rf_asof ||
+    sample.boc_rf_asof ||
+    (state.productionShift && state.productionShift.bridge && state.productionShift.bridge.rf_asof) ||
+    (state.snap && state.snap.meta && state.snap.meta.rf_as_of) ||
+    null
+  );
+}
+
+function fillLagBootMethodCard(ui, payload) {
+  const chip = $(ui.chip);
+  const list = $(ui.list);
+  if (!payload) {
+    chip.textContent = '—';
+    chip.className = 'chip off';
+    list.innerHTML = kvHtml([['Status', 'No artifact for this day']]);
+    return;
+  }
+  chip.textContent = 'LOADED';
+  chip.className = 'chip on';
+  const z1 = lagBootSpotPct(payload, 1);
+  const z10 = lagBootSpotPct(payload, 10);
+  const z30 = lagBootSpotPct(payload, 30);
+  const f10 = lagBootFwdPct(payload, 10);
+  list.innerHTML = kvHtml([
+    ['Method', esc(payload.method || ui.key)],
+    ['Valet as-of', esc(fmtDate(payload.valet_asof) || '—')],
+    ['BoC rf_asof', esc(fmtDate(payload.boc_rf_asof) || '—')],
+    ['Spot y1 / y10 / y30', [
+      isNum(z1) ? z1.toFixed(3) : '—',
+      isNum(z10) ? z10.toFixed(3) : '—',
+      isNum(z30) ? z30.toFixed(3) : '—',
+    ].join(' / ') + ' %'],
+    ['Fwd y10 (boot)', isNum(f10) ? `${f10.toFixed(3)} %` : '—'],
+  ]);
+}
+
+function setLagBootTip(html, clientX, clientY) {
+  const tip = $('#lagBootTip');
+  const host = $('#lagBootChart');
+  if (!tip || !host) return;
+  if (!html) {
+    tip.hidden = true;
+    tip.innerHTML = '';
+    return;
+  }
+  tip.hidden = false;
+  tip.innerHTML = html;
+  const rect = host.getBoundingClientRect();
+  let left = clientX - rect.left + 12;
+  let top = clientY - rect.top + 12;
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+  const tipRect = tip.getBoundingClientRect();
+  if (tipRect.right > rect.right - 4) {
+    left = Math.max(8, clientX - rect.left - tipRect.width - 12);
+    tip.style.left = `${left}px`;
+  }
+  if (tipRect.bottom > rect.bottom - 4) {
+    top = Math.max(8, clientY - rect.top - tipRect.height - 12);
+    tip.style.top = `${top}px`;
+  }
+}
+
+function renderLagBootstrapLegend() {
+  const legend = $('#lagBootLegend');
+  if (!legend) return;
+  const vis = state.lagBootVisible || {};
+  legend.innerHTML = Object.entries(LAG_BOOT_SERIES_META)
+    .map(([key, se]) => {
+      const on = vis[key] !== false;
+      return (
+        `<button type="button" data-key="${esc(key)}" class="${on ? '' : 'off'}" ` +
+        `aria-pressed="${on ? 'true' : 'false'}" title="Toggle ${esc(se.label)}">` +
+        `<span class="swatch${se.dashed ? ' dashed' : ''}" style="${se.dashed ? `border-top-color:${se.color}` : `background:${se.color}`}"></span>` +
+        `${esc(se.label)}</button>`
+      );
+    })
+    .join('');
+  legend.querySelectorAll('button[data-key]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      if (!key) return;
+      state.lagBootVisible[key] = !(state.lagBootVisible[key] !== false);
+      renderLagBootstrapLegend();
+      renderLagBootstrapChart(
+        (state.lagBootstrap && state.lagBootstrap.byMethod) || {},
+        state.lagBootstrap && state.lagBootstrap.selectedDay
+      );
+    });
+  });
+}
+
+function renderLagBootstrap() {
+  const panel = $('#lagBootPanel');
+  if (!panel) return;
+
+  const lb = state.lagBootstrap;
+  const chip = $('#lagBootChip');
+  const sel = $('#selLagBootDay');
+  const desc = $('#lagBootDesc');
+  const viewSel = $('#selLagBootView');
+  const tenorSel = $('#selLagBootTenor');
+
+  if (viewSel) viewSel.value = state.lagBootView || 'time';
+  if (tenorSel) {
+    tenorSel.value = String(state.lagBootTenor || 10);
+    tenorSel.disabled = (state.lagBootView || 'time') === 'maturity';
+  }
+
+  if (!lb || (!lb.byMethod && !(lb.days && lb.days.length))) {
+    chip.textContent = 'EXPERIMENTAL';
+    chip.className = 'chip';
+    if (sel) sel.innerHTML = '';
+    LAG_BOOT_UI.forEach((ui) => fillLagBootMethodCard(ui, null));
+    $('#lagBootMetaList').innerHTML = kvHtml([
+      ['Status', 'No lag_bootstrap artifacts loaded'],
+      ['Refresh', '<span class="mono">python3 -m pipeline.lag_bridge_bootstrap --from … --to …</span>'],
+    ]);
+    $('#lagBootMetaNote').textContent =
+      'Serve from project root so data/curves/lag_bootstrap/ resolves.';
+    $('#lagBootChart').innerHTML =
+      '<p class="empty">No predicted curves loaded. Run lag_bridge_bootstrap and serve from the TVFI root.</p>';
+    $('#lagBootLegend').innerHTML = '';
+    $('#lagBootChartDesc').textContent =
+      'Held BoC RF cuts off at rf_asof; predicted tracks continue through the lag. Hover a curve to name it; click the legend to toggle.';
+    setLagBootTip('');
+    return;
+  }
+
+  chip.textContent = 'LOADED';
+  chip.className = 'chip on';
+
+  const days = lb.days && lb.days.length
+    ? lb.days
+    : (lb.selectedDay ? [lb.selectedDay] : []);
+  if (sel) {
+    const cur = lb.selectedDay || (days.length ? days[days.length - 1] : '');
+    sel.innerHTML = days
+      .map((d) => `<option value="${esc(d)}"${d === cur ? ' selected' : ''}>${esc(fmtDate(d) || d)}</option>`)
+      .join('');
+  }
+
+  const byMethod = lb.byMethod || {};
+  LAG_BOOT_UI.forEach((ui) => fillLagBootMethodCard(ui, byMethod[ui.key] || null));
+
+  const summary = lb.summary || {};
+  const interval = summary.interval || {};
+  const sample = byMethod.ridge || byMethod.pca_ridge || byMethod.pca || {};
+  const sampleInterval = sample.interval || interval;
+  const rfAsOf = lagBootRfAsOf();
+  const nBoc = (state.bocHistory || []).length;
+  const hasShift = !!(state.productionShift && state.productionShift.annual_zeros_1_30);
+  $('#lagBootMetaList').innerHTML = kvHtml([
+    [
+      'Interval',
+      sampleInterval.from && sampleInterval.to
+        ? `${esc(fmtDate(sampleInterval.from))} → ${esc(fmtDate(sampleInterval.to))}`
+        : '—',
+    ],
+    ['BoC rf_asof (cutoff)', esc(fmtDate(rfAsOf) || '—')],
+    ['Valet day', esc(fmtDate(lb.selectedDay) || '—')],
+    ['Feature mode', esc(summary.feature_mode || '—')],
+    [
+      'Days in run',
+      isNum(summary.n_valet_days) ? String(summary.n_valet_days) : String(days.length || '—'),
+    ],
+    [
+      'Tracks loaded',
+      LAG_BOOT_METHODS.filter((m) => byMethod[m]).join(', ') || '—',
+    ],
+    ['Held BoC history', nBoc ? `${nBoc} dated snap(s)` : '—'],
+    ['Production shift', hasShift ? 'loaded' : '—'],
+  ]);
+  $('#lagBootMetaNote').textContent =
+    'Held BoC (current) stops at rf_asof. Predicted Ridge / PCA / PCA+Ridge continue through the lag. Keyed Valet shift remains the --rebuilt default.';
+  desc.textContent =
+    `Held BoC cutoff ${fmtDate(rfAsOf) || '—'} · predictions through Valet ${fmtDate(lb.selectedDay) || '—'} (experimental).`;
+
+  renderLagBootstrapLegend();
+  renderLagBootstrapChart(byMethod, lb.selectedDay);
+}
+
+function buildLagBootTimeSeries(byMethod, tenor) {
+  const series = [];
+  const vis = state.lagBootVisible || {};
+  const rfAsOf = lagBootRfAsOf();
+  const hist = (state.bocHistory || [])
+    .map((h) => ({
+      date: bocHistoryAsof(h),
+      pct: bocHistorySpotPct(h, tenor),
+    }))
+    .filter((p) => p.date && isNum(p.pct))
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+  // Keep the last few known BoC prints on the plot (through rf_asof), then stop.
+  let lastKnown = null;
+  if (vis.current !== false && hist.length) {
+    const cut = hist.filter((p) => !rfAsOf || p.date <= rfAsOf);
+    if (cut.length) {
+      lastKnown = cut[cut.length - 1];
+      series.push({
+        key: 'current',
+        label: 'Known BoC (held)',
+        color: '#6f8696',
+        dashed: false,
+        cutoff: true,
+        points: cut.map((p) => ({ t: p.date, pct: p.pct })),
+      });
+    }
+  }
+
+  // Anchor every prediction at the last known BoC point so tracks fan out past the cutoff.
+  const anchorPt = lastKnown
+    ? { t: lastKnown.date, pct: lastKnown.pct }
+    : (rfAsOf
+      ? (() => {
+          const snap = (state.bocHistory || []).find((h) => bocHistoryAsof(h) === rfAsOf);
+          const pct = snap ? bocHistorySpotPct(snap, tenor) : null;
+          return isNum(pct) ? { t: rfAsOf, pct } : null;
+        })()
+      : null);
+
+  if (vis.production !== false && state.productionShift && isNum(productionShiftSpotPct(tenor))) {
+    const bridge = state.productionShift.bridge || {};
+    const live = bridge.valet_live_asof || null;
+    const base = bridge.rf_asof || rfAsOf;
+    const pts = [];
+    if (anchorPt) {
+      pts.push({ t: anchorPt.t, pct: anchorPt.pct });
+    } else if (base) {
+      const baseSnap = (state.bocHistory || []).find((h) => bocHistoryAsof(h) === base);
+      const basePct = baseSnap ? bocHistorySpotPct(baseSnap, tenor) : null;
+      if (isNum(basePct)) pts.push({ t: base, pct: basePct });
+    }
+    if (live) pts.push({ t: live, pct: productionShiftSpotPct(tenor) });
+    if (pts.length) {
+      series.push({
+        key: 'production',
+        label: 'Production Valet shift',
+        color: '#5b6b7c',
+        dashed: true,
+        cutoff: false,
+        points: pts,
+      });
+    }
+  }
+
+  const lb = state.lagBootstrap;
+  const days = (lb && lb.days) || [];
+  const cache = (lb && lb.dayCache) || {};
+  LAG_BOOT_UI.forEach((ui) => {
+    if (vis[ui.key] === false) return;
+    const pts = [];
+    // Start at last known BoC so the prediction visually continues past the cutoff.
+    if (anchorPt) pts.push({ t: anchorPt.t, pct: anchorPt.pct });
+    days.forEach((day) => {
+      // Skip days on/before the known cutoff — those are covered by the held BoC series.
+      if (rfAsOf && day <= rfAsOf) return;
+      const payload = (cache[day] && cache[day][ui.key]) || (day === (lb && lb.selectedDay) ? byMethod[ui.key] : null);
+      const pct = lagBootSpotPct(payload, tenor);
+      if (isNum(pct)) pts.push({ t: day, pct });
+    });
+    // Ensure selected day from byMethod is present even if cache race
+    if (pts.length <= (anchorPt ? 1 : 0) && byMethod[ui.key]) {
+      const pct = lagBootSpotPct(byMethod[ui.key], tenor);
+      const day = byMethod[ui.key].valet_asof || (lb && lb.selectedDay);
+      if (day && isNum(pct) && !(rfAsOf && day <= rfAsOf)) pts.push({ t: day, pct });
+    }
+    if (pts.length > (anchorPt ? 1 : 0)) {
+      series.push({
+        key: ui.key,
+        label: `${ui.label} predicted`,
+        color: ui.color,
+        dashed: false,
+        cutoff: false,
+        points: pts.sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0)),
+      });
+    }
+  });
+
+  return { series, rfAsOf, axis: 'time' };
+}
+
+function buildLagBootMaturitySeries(byMethod, day) {
+  const series = [];
+  const vis = state.lagBootVisible || {};
+  const rfAsOf = lagBootRfAsOf();
+  const years = Array.from({ length: 30 }, (_, i) => i + 1);
+
+  if (vis.current !== false) {
+    const snap =
+      (state.bocHistory || []).find((h) => bocHistoryAsof(h) === rfAsOf) ||
+      (state.bocHistory || [])[(state.bocHistory || []).length - 1] ||
+      null;
+    const pts = years
+      .map((y) => ({ year: y, pct: bocHistorySpotPct(snap, y) }))
+      .filter((p) => isNum(p.pct));
+    if (pts.length) {
+      series.push({
+        key: 'current',
+        label: `Known BoC${rfAsOf ? ` (${fmtDate(rfAsOf)})` : ''}`,
+        color: '#6f8696',
+        dashed: false,
+        cutoff: true,
+        points: pts,
+      });
+    }
+  }
+
+  if (vis.production !== false) {
+    const pts = years
+      .map((y) => ({ year: y, pct: productionShiftSpotPct(y) }))
+      .filter((p) => isNum(p.pct));
+    if (pts.length) {
+      series.push({
+        key: 'production',
+        label: 'Production Valet shift',
+        color: '#5b6b7c',
+        dashed: true,
+        cutoff: false,
+        points: pts,
+      });
+    }
+  }
+
+  LAG_BOOT_UI.forEach((ui) => {
+    if (vis[ui.key] === false) return;
+    const payload = byMethod[ui.key];
+    if (!payload) return;
+    const zeros = (payload.predicted_zeros_annual_effective || [])
+      .map((r) => ({
+        year: Number(r.year),
+        pct: isNum(r.zero) ? Number(r.zero) * 100 : null,
+      }))
+      .filter((r) => isNum(r.year) && isNum(r.pct));
+    if (zeros.length) {
+      series.push({
+        key: ui.key,
+        label: `${ui.label} predicted spot`,
+        color: ui.color,
+        dashed: false,
+        cutoff: false,
+        points: zeros,
+      });
+    }
+    if (vis[`${ui.key}_fwd`] !== false) {
+      const fwds = (payload.bootstrap || [])
+        .map((r) => ({
+          year: Number(r.year),
+          pct: isNum(r.forward_1y) ? Number(r.forward_1y) * 100 : null,
+        }))
+        .filter((r) => isNum(r.year) && isNum(r.pct));
+      if (fwds.length) {
+        series.push({
+          key: `${ui.key}_fwd`,
+          label: `${ui.label} boot fwd`,
+          color: ui.color,
+          dashed: true,
+          cutoff: false,
+          points: fwds,
+        });
+      }
+    }
+  });
+
+  return { series, rfAsOf, axis: 'maturity', day };
+}
+
+function renderLagBootstrapChart(byMethod, day) {
+  const host = $('#lagBootChart');
+  const chartDesc = $('#lagBootChartDesc');
+  if (!host) return;
+  setLagBootTip('');
+
+  const view = state.lagBootView || 'time';
+  const tenor = state.lagBootTenor || 10;
+  const built =
+    view === 'maturity'
+      ? buildLagBootMaturitySeries(byMethod || {}, day)
+      : buildLagBootTimeSeries(byMethod || {}, tenor);
+  const series = built.series || [];
+  const rfAsOf = built.rfAsOf;
+
+  if (!series.length) {
+    chartDesc.textContent =
+      'Held BoC cuts off at rf_asof; predicted tracks continue. Hover to name a curve; click legend to toggle.';
+    host.innerHTML =
+      '<p class="empty">No curve points for the current view / toggles. Load lag_bootstrap artifacts and BoC snaps from the project root.</p>';
+    return;
+  }
+
+  if (view === 'maturity') {
+    chartDesc.textContent =
+      `Maturity view · known BoC at rf_asof ${fmtDate(rfAsOf) || '—'} vs Ridge / PCA / PCA+Ridge for Valet ${fmtDate(day) || '—'} · hover names a curve · legend toggles`;
+  } else {
+    chartDesc.textContent =
+      `Time view · ${tenor}y · last known BoC through ${fmtDate(rfAsOf) || '—'}, then Ridge / PCA / PCA+Ridge fan out · hover names a curve · legend toggles`;
+  }
+
+  const allVals = series.flatMap((se) => se.points.map((p) => p.pct)).filter(isNum);
+  if (!allVals.length) {
+    host.innerHTML = '<p class="empty">No numeric points to chart.</p>';
+    return;
+  }
+
+  const W = 760, H = 300;
+  const mg = { t: 18, r: 18, b: 48, l: 48 };
+  let xMin;
+  let xMax;
+  let xPos;
+  let xTicks;
+
+  if (view === 'maturity') {
+    const years = Array.from(
+      new Set(series.flatMap((se) => se.points.map((p) => p.year)))
+    ).sort((a, b) => a - b);
+    if (years.length < 2) {
+      host.innerHTML = '<p class="empty">Not enough maturity nodes to chart.</p>';
+      return;
+    }
+    xMin = years[0];
+    xMax = years[years.length - 1];
+    xPos = (v) => mg.l + ((v - xMin) / (xMax - xMin || 1)) * (W - mg.l - mg.r);
+    xTicks = [1, 2, 5, 10, 15, 20, 25, 30].filter((t) => t >= xMin && t <= xMax);
+  } else {
+    const dates = Array.from(
+      new Set(series.flatMap((se) => se.points.map((p) => p.t)))
+    ).sort();
+    if (dates.length < 1) {
+      host.innerHTML = '<p class="empty">Not enough dates to chart.</p>';
+      return;
+    }
+    // Map dates (+ optional rfAsOf) onto a linear index axis
+    const axisDates = Array.from(new Set([...dates, rfAsOf].filter(Boolean))).sort();
+    const idxOf = (d) => {
+      const i = axisDates.indexOf(d);
+      return i < 0 ? 0 : i;
+    };
+    xMin = 0;
+    xMax = Math.max(1, axisDates.length - 1);
+    xPos = (d) => mg.l + (idxOf(d) / (xMax || 1)) * (W - mg.l - mg.r);
+    xTicks = axisDates;
+  }
+
+  const yMin = Math.floor((Math.min(...allVals) - 0.05) / 0.25) * 0.25;
+  const yMax = Math.ceil((Math.max(...allVals) + 0.05) / 0.25) * 0.25;
+  const yPos = (v) => H - mg.b - ((v - yMin) / (yMax - yMin || 1)) * (H - mg.t - mg.b);
+
+  host.innerHTML = '';
+  // Keep tip element inside chart wrap
+  let tip = $('#lagBootTip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'lagBootTip';
+    tip.className = 'tip';
+    tip.hidden = true;
+    host.appendChild(tip);
+  }
+
+  const svg = svgEl('svg', {
+    viewBox: `0 0 ${W} ${H}`,
+    class: 'chart',
+    role: 'img',
+    'aria-label': 'Lag-remedy held BoC and predicted curves',
+  });
+  host.appendChild(svg);
+
+  for (let v = yMin; v <= yMax + 1e-9; v += 0.25) {
+    svgEl('line', { x1: mg.l, x2: W - mg.r, y1: yPos(v), y2: yPos(v), class: 'grid' }, svg);
+    svgText(svg, mg.l - 8, yPos(v) + 3, v.toFixed(2), { class: 'tick', 'text-anchor': 'end' });
+  }
+
+  if (view === 'maturity') {
+    for (const t of xTicks) {
+      svgEl('line', { x1: xPos(t), x2: xPos(t), y1: mg.t, y2: H - mg.b, class: 'grid' }, svg);
+      svgText(svg, xPos(t), H - mg.b + 16, String(t), { class: 'tick', 'text-anchor': 'middle' });
+    }
+    svgText(svg, (mg.l + W - mg.r) / 2, H - 8, 'Maturity (years)', { class: 'axis-title' });
+  } else {
+    const axisDates = Array.from(
+      new Set(series.flatMap((se) => se.points.map((p) => p.t)).concat(rfAsOf ? [rfAsOf] : []))
+    ).sort();
+    const labelEvery = Math.max(1, Math.ceil(axisDates.length / 6));
+    axisDates.forEach((d, i) => {
+      if (i % labelEvery !== 0 && i !== axisDates.length - 1) return;
+      svgEl('line', { x1: xPos(d), x2: xPos(d), y1: mg.t, y2: H - mg.b, class: 'grid' }, svg);
+      svgText(svg, xPos(d), H - mg.b + 16, fmtDate(d) || d, {
+        class: 'tick',
+        'text-anchor': 'middle',
+      });
+    });
+    svgText(svg, (mg.l + W - mg.r) / 2, H - 8, 'Valet / BoC date', { class: 'axis-title' });
+  }
+
+  // Cutoff marker at rf_asof (time view) or annotation (maturity view)
+  if (rfAsOf) {
+    if (view === 'time') {
+      const cx = xPos(rfAsOf);
+      svgEl('line', {
+        x1: cx, x2: cx, y1: mg.t, y2: H - mg.b, class: 'cutoff',
+      }, svg);
+      svgText(svg, cx + 4, mg.t + 10, `BoC data ends ${fmtDate(rfAsOf)}`, {
+        class: 'cutoff-label',
+      });
+    } else {
+      svgText(svg, mg.l + 4, mg.t + 10, `Held BoC as-of ${fmtDate(rfAsOf)} (no official points beyond this date in time view)`, {
+        class: 'cutoff-label',
+      });
+    }
+  }
+
+  const hitTargets = []; // {x,y,r, series, point}
+
+  for (const se of series) {
+    let path = '';
+    let pen = false;
+    for (const p of se.points) {
+      const px = view === 'maturity' ? xPos(p.year) : xPos(p.t);
+      const py = yPos(p.pct);
+      path += `${pen ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`;
+      pen = true;
+      hitTargets.push({
+        x: px,
+        y: py,
+        r: 10,
+        seriesKey: se.key,
+        seriesLabel: se.label,
+        color: se.color,
+        point: p,
+        view,
+      });
+    }
+    const attrs = {
+      d: path,
+      fill: 'none',
+      stroke: se.color,
+      'stroke-width': se.dashed ? 1.5 : (se.key === 'current' ? 2.6 : 2),
+      'stroke-linejoin': 'round',
+      'stroke-linecap': 'round',
+      class: `line lb-${se.key.replace(/_/g, '-')}`,
+      'data-series': se.key,
+      'data-label': se.label,
+    };
+    if (se.dashed) attrs['stroke-dasharray'] = '5 4';
+    // Wider invisible stroke for easier hover
+    svgEl('path', {
+      d: path,
+      fill: 'none',
+      stroke: 'transparent',
+      'stroke-width': 12,
+      'stroke-linejoin': 'round',
+      'stroke-linecap': 'round',
+      class: 'hit',
+      'data-series': se.key,
+      'data-label': se.label,
+    }, svg);
+    svgEl('path', attrs, svg);
+
+    const markerPts =
+      view === 'maturity'
+        ? se.points.filter((pt) => [1, 2, 5, 10, 20, 30].includes(pt.year))
+        : se.points;
+    for (const p of markerPts) {
+      const px = view === 'maturity' ? xPos(p.year) : xPos(p.t);
+      const py = yPos(p.pct);
+      svgEl('circle', {
+        cx: px,
+        cy: py,
+        r: se.key === 'current' ? 3 : 2.4,
+        fill: se.dashed ? '#fff' : se.color,
+        stroke: se.color,
+        'stroke-width': 1.2,
+        class: `dot lb-${se.key.replace(/_/g, '-')}`,
+        'data-series': se.key,
+        'data-label': se.label,
+      }, svg);
+    }
+  }
+
+  function tipForTarget(t) {
+    const when =
+      view === 'maturity'
+        ? `${t.point.year}y`
+        : (fmtDate(t.point.t) || t.point.t);
+    const extra =
+      view === 'time'
+        ? `${tenor}y tenor`
+        : (t.seriesKey === 'current' ? 'held BoC (cuts off after rf_asof in time view)' : 'predicted');
+    return (
+      `<div class="tip-name" style="color:${t.color}">${esc(t.seriesLabel)}</div>` +
+      `<div class="tip-meta">${esc(when)} · ${Number(t.point.pct).toFixed(3)}%` +
+      (extra ? ` · ${esc(extra)}` : '') +
+      `</div>`
+    );
+  }
+
+  function nearestTarget(clientX, clientY) {
+    const rect = svg.getBoundingClientRect();
+    const sx = ((clientX - rect.left) / rect.width) * W;
+    const sy = ((clientY - rect.top) / rect.height) * H;
+    let best = null;
+    let bestDist = Infinity;
+    for (const t of hitTargets) {
+      const d = (t.x - sx) ** 2 + (t.y - sy) ** 2;
+      if (d < bestDist && d <= t.r * t.r * 4) {
+        bestDist = d;
+        best = t;
+      }
+    }
+    return best;
+  }
+
+  svg.addEventListener('mousemove', (ev) => {
+    // Prefer series from hit path / dot under cursor
+    const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    let label = el && el.getAttribute && el.getAttribute('data-label');
+    let key = el && el.getAttribute && el.getAttribute('data-series');
+    const near = nearestTarget(ev.clientX, ev.clientY);
+    if (near) {
+      setLagBootTip(tipForTarget(near), ev.clientX, ev.clientY);
+      return;
+    }
+    if (label) {
+      const se = series.find((s) => s.key === key) || { label, color: '#15263a' };
+      setLagBootTip(
+        `<div class="tip-name" style="color:${se.color || '#15263a'}">${esc(label)}</div>` +
+          `<div class="tip-meta">Hover a point for date / tenor detail</div>`,
+        ev.clientX,
+        ev.clientY
+      );
+      return;
+    }
+    setLagBootTip('');
+  });
+  svg.addEventListener('mouseleave', () => setLagBootTip(''));
+}
+
 function renderHeader() {
   const s = state.snap;
   const m = s.meta || {};
   const illus = !!s.is_illustrative;
+  const bridge = m.lag_bridge || {};
 
   $('#illustrativeBanner').hidden = !illus;
   $('#bannerSnapshotId').textContent = s.snapshot_id || '';
@@ -463,6 +1485,23 @@ function renderHeader() {
   $('#mMarket').textContent = `${fmtDate(m.latest_market_date)}${m.market_session ? ` · ${m.market_session}` : ''}`;
   $('#mSourceLabel').textContent = m.source_label ? `Source · ${m.source_label}` : 'Source';
   $('#mSource').textContent = m.source || '—';
+
+  const rfEl = $('#mRf');
+  if (rfEl) {
+    const lagPart = isNum(m.rf_publish_lag_days) ? ` · lag ${m.rf_publish_lag_days}d` : '';
+    const bridgePart = bridge.applied ? ' · Valet bridge ON' : '';
+    rfEl.textContent = m.rf_as_of
+      ? `${fmtDate(m.rf_as_of)}${lagPart}${bridgePart}`
+      : '—';
+    rfEl.className = bridge.applied ? 'dot-status ok' : '';
+  }
+  const premEl = $('#mPremium');
+  if (premEl) {
+    premEl.textContent = m.premium_policy
+      ? `${m.premium_policy}${m.premium_as_of ? ` · ${fmtDate(m.premium_as_of)}` : ''}`
+      : '—';
+  }
+
   $('#mUpdate').textContent = fmtDateTime(m.last_successful_update, m.timezone_label);
 
   const avail = m.data_availability || 'UNKNOWN';
@@ -478,8 +1517,10 @@ function renderHeader() {
   availEl.textContent = `${availTxt}${illus ? ' · demo' : ''}`;
 
   $('#selObs').innerHTML = `<option>${esc(fmtDate(m.observation_date))}</option>`;
+  const thr = (s.metrics_computed || {}).primary_threshold_bp;
+  const thrNote = isNum(thr) ? ` · trigger T ≥ ${thr} bp` : ' · trigger T ≥ 25 bp';
   $('#toolbarNote').textContent =
-    `${m.currency || ''} ${m.yield_type || ''} yields · ${s.maturities.length} display nodes (T uses years 1–30) · 1 bp = 0.01%`.trim();
+    `${m.currency || ''} ${m.yield_type || ''} yields · ${s.maturities.length} display nodes (T uses years 1–30) · 1 bp = 0.01%${thrNote}`.trim();
 
   const a = s.assessment || {};
   $('#tabsNote').textContent = a.overall_status === 'UNASSESSED' || !a.overall_status
@@ -972,6 +2013,27 @@ function exportCsv() {
   download(`maturity_analysis_${s.snapshot_id || 'export'}.csv`, lines.join('\n'), 'text/csv');
 }
 
+async function exportLagBootstrapXlsx() {
+  const url = CONFIG.lagBootstrapXlsxUrl;
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    const obj = URL.createObjectURL(blob);
+    a.href = obj;
+    a.download = 'lag_bootstrap_curves.xlsx';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(obj), 0);
+    toast('Downloaded lag_bootstrap_curves.xlsx');
+  } catch (err) {
+    toast(
+      'Excel export missing — run: python3 -m pipeline.lag_bridge_bootstrap --xlsx-only',
+      true
+    );
+  }
+}
+
 function openHistory() {
   const s = state.snap;
   const thr = primaryThresholdBp(s);
@@ -1002,6 +2064,8 @@ function bindControls() {
   });
   $('#btnExport').addEventListener('click', exportSnapshot);
   $('#btnCsv').addEventListener('click', exportCsv);
+  const btnLagXlsx = $('#btnLagBootXlsx');
+  if (btnLagXlsx) btnLagXlsx.addEventListener('click', exportLagBootstrapXlsx);
   $('#btnHistory').addEventListener('click', openHistory);
   $('#pipelineRow').addEventListener('click', openHistory);
   $('#btnCloseDialog').addEventListener('click', () => $('#historyDialog').close());
@@ -1016,6 +2080,45 @@ function bindControls() {
     renderBarChart();
     renderMaturity();
   });
+
+  const lagDaySel = $('#selLagBootDay');
+  if (lagDaySel) {
+    lagDaySel.addEventListener('change', async (e) => {
+      const day = e.target.value;
+      if (!day || !state.lagBootstrap) return;
+      state.lagBootstrap.selectedDay = day;
+      const byMethod = await loadLagBootstrapDay(day);
+      if (byMethod) state.lagBootstrap.byMethod = byMethod;
+      renderLagBootstrap();
+    });
+  }
+
+  const lagViewSel = $('#selLagBootView');
+  if (lagViewSel) {
+    lagViewSel.addEventListener('change', (e) => {
+      state.lagBootView = e.target.value === 'maturity' ? 'maturity' : 'time';
+      const tenorWrap = $('#lagBootTenorWrap');
+      if (tenorWrap) tenorWrap.hidden = state.lagBootView !== 'time';
+      renderLagBootstrapChart(
+        (state.lagBootstrap && state.lagBootstrap.byMethod) || {},
+        state.lagBootstrap && state.lagBootstrap.selectedDay
+      );
+    });
+  }
+
+  const lagTenorSel = $('#selLagBootTenor');
+  if (lagTenorSel) {
+    lagTenorSel.addEventListener('change', (e) => {
+      const y = Number(e.target.value);
+      state.lagBootTenor = Number.isFinite(y) ? y : 10;
+      if (state.lagBootView === 'time') {
+        renderLagBootstrapChart(
+          (state.lagBootstrap && state.lagBootstrap.byMethod) || {},
+          state.lagBootstrap && state.lagBootstrap.selectedDay
+        );
+      }
+    });
+  }
 
   document.querySelectorAll('.tab').forEach((tab) => tab.addEventListener('click', () => showTab(tab.dataset.tab)));
   if (location.hash === '#maturity') showTab('maturity');

@@ -110,8 +110,174 @@ h1 { font-size: 26px; letter-spacing: -.01em; }
 .btn-sm { padding: 5px 10px; font-size: 11px; }
 
 .meta-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin: 24px 0 0; }
+.meta-row-wide { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 .meta-row dt { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-.meta-row dd { margin: 0; }
+.meta-row dd { margin: 0; font-size: 13px; }
+
+.feeds-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 16px 0 8px;
+}
+.feed-card .kv { margin-top: 10px; }
+.feed-card .kv dt { min-width: 0; }
+.anchor-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.anchor-pill {
+  font-family: var(--mono);
+  font-size: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 3px 7px;
+  color: var(--ink);
+}
+.anchor-pill.pos { color: var(--teal); }
+.anchor-pill.neg { color: var(--amber); }
+.chip.on { background: var(--teal-soft); color: var(--teal); }
+.chip.off { background: #eceff3; color: var(--muted); }
+.chip.warn { background: var(--amber-soft); color: var(--amber); }
+
+@media (max-width: 900px) {
+  .feeds-grid { grid-template-columns: 1fr; }
+}
+
+.lagboot-section {
+  margin: 8px 0 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 16px 16px 12px;
+}
+.lagboot-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.lagboot-head h2 { font-size: 16px; margin: 0 0 4px; }
+.lagboot-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.lagboot-chart-card {
+  margin-top: 12px;
+}
+.lagboot-chart-card .chart-wrap {
+  min-height: 220px;
+  margin-top: 8px;
+}
+.lagboot-chart-card .legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.lagboot-chart-card .legend span::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 3px;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-radius: 1px;
+}
+.lagboot-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 420px;
+  justify-content: flex-end;
+}
+.lagboot-legend button {
+  font: inherit;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 4px 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.lagboot-legend button:hover { border-color: #c3cad1; color: var(--ink); }
+.lagboot-legend button.off {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+.lagboot-legend button .swatch {
+  width: 12px;
+  height: 3px;
+  border-radius: 1px;
+  flex: 0 0 auto;
+}
+.lagboot-legend button .swatch.dashed {
+  height: 0;
+  border-top: 2px dashed currentColor;
+  background: transparent !important;
+}
+.lagboot-legend button[data-key="current"] .swatch { background: #6f8696; }
+.lagboot-legend button[data-key="production"] .swatch { background: #5b6b7c; border-top-color: #5b6b7c; }
+.lagboot-legend button[data-key="ridge"] .swatch { background: #2c7a71; }
+.lagboot-legend button[data-key="pca"] .swatch { background: #b07a28; }
+.lagboot-legend button[data-key="pca_ridge"] .swatch { background: #213851; }
+.chart .line.lb-current { stroke: #6f8696; stroke-width: 2.4; }
+.chart .line.lb-production {
+  stroke: #5b6b7c;
+  stroke-width: 1.8;
+  stroke-dasharray: 5 4;
+}
+.chart .line.lb-ridge { stroke: #2c7a71; }
+.chart .line.lb-pca { stroke: #b07a28; }
+.chart .line.lb-pca-ridge { stroke: #213851; }
+.chart .dot.lb-current { stroke: #6f8696; fill: #6f8696; }
+.chart .dot.lb-production { stroke: #5b6b7c; fill: #fff; }
+.chart .dot.lb-ridge { stroke: #2c7a71; fill: #2c7a71; }
+.chart .dot.lb-pca { stroke: #b07a28; fill: #b07a28; }
+.chart .dot.lb-pca-ridge { stroke: #213851; fill: #213851; }
+.chart .cutoff {
+  stroke: var(--amber);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+.chart .cutoff-label {
+  fill: var(--amber);
+  font-size: 10px;
+  font-family: var(--sans);
+}
+#lagBootChart .tip {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--ink);
+  box-shadow: 0 4px 14px rgba(21, 38, 58, 0.08);
+  min-width: 140px;
+  max-width: 240px;
+}
+#lagBootChart .tip .tip-name {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+#lagBootChart .tip .tip-meta {
+  color: var(--muted);
+}
 .dot-status::before {
   content: '';
   display: inline-block;
