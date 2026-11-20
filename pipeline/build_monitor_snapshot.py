@@ -77,6 +77,19 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--no-lag-bridge",
+        action="store_true",
+        help=(
+            "With --rebuilt: disable Valet key-rate lag bridge "
+            "(default: ON while BoC zeros are lagged)"
+        ),
+    )
+    parser.add_argument(
+        "--no-fetch-valet",
+        action="store_true",
+        help="With --rebuilt: use cached Valet benchmarks only (no live Valet pull)",
+    )
+    parser.add_argument(
         "--no-thresholds",
         action="store_true",
         help="Leave trigger thresholds null (UNASSESSED) instead of calibrated values",
@@ -96,6 +109,8 @@ def main() -> int:
         rf=args.rf,
         boc_snapshot=args.boc_snapshot,
         refresh_rf=not args.no_refresh_rf,
+        lag_bridge=not args.no_lag_bridge,
+        fetch_valet=not args.no_fetch_valet,
     )
     paths = write_snapshot(snapshot)
 
@@ -107,6 +122,17 @@ def main() -> int:
     if args.rebuilt:
         print(f"rf_source:   {snapshot['meta'].get('rf_source')}")
         print(f"rf_as_of:    {snapshot['meta'].get('rf_as_of')}")
+        bridge = snapshot["meta"].get("lag_bridge") or {}
+        if bridge:
+            print(
+                f"lag_bridge:  applied={bridge.get('applied')} "
+                f"reason={bridge.get('reason')}"
+            )
+            if bridge.get("applied"):
+                print(
+                    f"bridge Δ:    max|Δ|={bridge.get('max_abs_shift_bp'):.2f} bp "
+                    f"({bridge.get('valet_base_asof')} → {bridge.get('valet_live_asof')})"
+                )
         if snapshot["meta"].get("lag_note"):
             print(f"lag_note:    {snapshot['meta'].get('lag_note')}")
         print(f"construction:{snapshot['meta'].get('construction_record')}")

@@ -78,6 +78,31 @@ Team / industry partner should explicitly review and sign off on:
 
 ---
 
+## Valet lag bridge (2026-11-20) — default during BoC lag
+
+Live overlay for the ~2-week BoC zero publication lag (does **not** replace BoC as primary):
+
+- Intake: `pipeline/valet_intake.py` → `data/risk_free/valet/`
+- Bridge: `pipeline/lag_bridge.py` — keyed shift of held BoC annual zeros by Valet Δ
+- Wired into `--rebuilt` by default; disable with `--no-lag-bridge`
+- Memo: `docs/memos/valet-lag-bridge.md`
+
+### Experimental: Ridge / PCA nowcast (2026-11-20)
+
+Statistical horse-race vs keyed shift — **not** default yet:
+
+- Code: `pipeline/lag_bridge_mlr.py` (`--train --backtest --predict`)
+- Memo: `docs/memos/lag-bridge-ridge-pca.md`
+- First back-test (~1y BoC panel, walk-forward): Ridge mean RMSE **~1.0 bp** vs hold **~3.4 bp**; PCA nearly identical (~1.05 bp). Live prediction ≈ keyed shift (~2.4 bp RMSE vs shift).
+
+## Experimental: IoA annual par bootstrap (2026-11-20)
+
+Pedagogy / Fiera RF check — **not** the lag fill (use Valet bridge above).
+
+- Code: `pipeline/bootstrap.py` (`python3 -m pipeline.bootstrap --compare`)
+- Memo: `docs/memos/experimental-par-bootstrap.md`
+- Finding: bootstrapping Fiera **Canada par** recovers construction **col E** exactly (0 bp)
+
 ## Partner review pack (2026-11-20)
 
 Ready to send: `docs/partner-review/2026-11-20/`

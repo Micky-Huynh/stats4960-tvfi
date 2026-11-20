@@ -4,16 +4,16 @@
   "pricing_basis_date": "2026-09-29",
   "measure": "weighted_abs_change_bp",
   "threshold_bp": 25.0,
-  "value_bp": 25.24,
+  "value_bp": 17.56,
   "metrics": {
-    "weighted_abs_change_bp": 25.24,
-    "weighted_signed_change_bp": -24.5,
-    "max_bucket_abs_change_bp": 43.46,
+    "weighted_abs_change_bp": 17.56,
+    "weighted_signed_change_bp": -13.45,
+    "max_bucket_abs_change_bp": 32.46,
     "max_bucket_label": "16-20",
-    "abs_mean_change_bp": 24.61,
-    "max_abs_change_bp": 46.49,
+    "abs_mean_change_bp": 19.89,
+    "max_abs_change_bp": 32.48,
     "max_maturity": 5,
-    "abs_twist_2s10s_bp": 14.72,
+    "abs_twist_2s10s_bp": 20.75,
     "thresholds_active": true,
     "thresholds_calibrated": true,
     "thresholds_provisional": false
@@ -24,8 +24,8 @@
       "label": "Weighted |\u0394| T (primary)",
       "metric": "weighted_abs_change_bp",
       "threshold_bp": 25.0,
-      "value_bp": 25.24,
-      "status": "BREACH",
+      "value_bp": 17.56,
+      "status": "PASS",
       "role": "primary"
     },
     {
@@ -33,8 +33,8 @@
       "label": "Largest bucket mean |\u0394| (16-20)",
       "metric": "max_bucket_abs_change_bp",
       "threshold_bp": 40.0,
-      "value_bp": 43.46,
-      "status": "BREACH",
+      "value_bp": 32.46,
+      "status": "PASS",
       "role": "diagnostic"
     },
     {
@@ -42,7 +42,7 @@
       "label": "Curve shape / twist (diagnostic)",
       "metric": "abs_twist_2s10s_bp",
       "threshold_bp": 40.0,
-      "value_bp": 14.72,
+      "value_bp": 20.75,
       "status": "PASS",
       "role": "diagnostic"
     },
@@ -51,20 +51,20 @@
       "label": "Signed weighted \u0394 S (direction)",
       "metric": "weighted_signed_change_bp",
       "threshold_bp": null,
-      "value_bp": -24.5,
+      "value_bp": -13.45,
       "status": "NOT_EVALUATED",
       "role": "diagnostic"
     }
   ],
   "assessment": {
-    "overall_status": "TRIGGERED",
-    "detail": "Primary threshold breach: Weighted |\u0394| T (primary) (T \u2265 25 bp)",
-    "note": "Calibrated curve-only trigger (liability-weighted absolute change T over years 1\u201330). A breach means: run a Slope profitability test (VoNB / Net CSM / CaPM). Bucket/twist/signed rules are diagnostics only.",
-    "outcome": "Triggered on: Weighted |\u0394| T (primary)"
+    "overall_status": "NO_TRIGGER",
+    "detail": "Primary rule passed (T < 25 bp)",
+    "note": "Calibrated curve-only trigger. Diagnostics (bucket mean |\u0394|, 2s10s twist, signed S) do not fire the Slope profitability test on their own.",
+    "outcome": "No Slope profitability test required under calibrated primary rule."
   },
-  "overall_status": "TRIGGERED",
+  "overall_status": "NO_TRIGGER",
   "inputs": {
-    "rf_source": "boc_zero_coupon_csv",
+    "rf_source": "boc_zero_coupon_csv+valet_lag_bridge",
     "premium_policy": "hold_latest_publication",
     "construction_record": "data/curves/construction_record_2026-10-30.json",
     "pricing_series": "illiquid_annual_forward_column_J",
@@ -74,5 +74,5 @@
     "source": "Fiera CIA IFRS 17 method workbook (Canada par + Illiquid col J)"
   },
   "notes": "Generated with pipeline.build_monitor_snapshot; primary measure is calibrated weighted |\u0394| T (curve-only).",
-  "written_at": "2026-11-20T13:20:01-05:00"
+  "written_at": "2026-11-20T14:03:23-05:00"
 }

@@ -83,6 +83,40 @@ Output: `data/curves/illiquid_col_j_<as_of>.xlsx` (Fiera RF) or `illiquid_col_j_
 
 RF sources for `curve_builder`: `--rf fiera` (default there, col E fixture; required for `--validate`) or `--rf boc` (dated JSON under `data/risk_free/`). Monitor `--rebuilt` defaults to `--rf auto` (BoC when available). Lag/freshness: `docs/memos/boc-rf-lag-freshness.md`.
 
+### Valet lag bridge (default during BoC lag)
+
+While BoC zeros are lagged, `--rebuilt` **shifts** held annual RF spots by Valet benchmark Δ (2/3/5/7/10/Long→30) since `rf_asof`. Primary source stays BoC zeros; Valet is the live overlay.
+
+```bash
+python3 -m pipeline.valet_intake
+python3 -m pipeline.lag_bridge
+python3 -m pipeline.build_monitor_snapshot --rebuilt
+python3 -m pipeline.build_monitor_snapshot --rebuilt --no-lag-bridge   # hold BoC only
+```
+
+Memo: `docs/memos/valet-lag-bridge.md`.
+
+### Ridge / PCA lag nowcast (experimental)
+
+Statistical alternative to the keyed shift — multi-output Ridge or PCA+Ridge mapping Valet → BoC annual zeros:
+
+```bash
+python3 -m pipeline.lag_bridge_mlr --train --backtest --predict
+```
+
+Memo: `docs/memos/lag-bridge-ridge-pca.md`. Not the `--rebuilt` default until back-test + partner OK.
+
+### Experimental par bootstrap (IoA / CM1)
+
+Optional pedagogy / sensitivity tool — **not** wired into `--rebuilt` and **not** used to fill BoC lag:
+
+```bash
+python3 -m pipeline.bootstrap --self-test
+python3 -m pipeline.bootstrap --series canada_par --compare
+```
+
+Memo: `docs/memos/experimental-par-bootstrap.md`. Template: QuantAndFinancial gilt bootstrapping notebook (annual-par simplification).
+
 ## Module split (keep thin)
 
 | Module | Owns |
@@ -92,6 +126,10 @@ RF sources for `curve_builder`: `--rf fiera` (default there, col E fixture; requ
 | `trigger.py` | Calibrated rules / overall status (`use_calibrated`; `use_provisional` deprecated alias) |
 | `curve_builder.py` | Column J rebuild |
 | `boc_intake.py` | BoC download + dated RF JSON |
+| `valet_intake.py` | BoC Valet benchmark yields (lag-bridge feed) |
+| `lag_bridge.py` | Shift held BoC zeros by Valet Δ during publish lag (**default ON** for `--rebuilt`) |
+| `lag_bridge_mlr.py` | **Experimental** Ridge / PCA nowcast Valet → BoC zeros (horse-race vs shift) |
+| `bootstrap.py` | **Experimental** IoA/CM1 annual par → zero/forward bootstrap (does **not** replace BoC RF) |
 | `snapshot_modes.py` | Fixture vs rebuilt implied-curve branching |
 | `snapshot_history.py` | Archive consecutive-J history rows + rebuilt labeling (no flags in rebuilt) |
 | `snapshot.py` | Assemble `monitor_snapshot.json` body only |

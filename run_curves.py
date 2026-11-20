@@ -20,8 +20,13 @@ GROUP = 5                                       # your group number, 1 to 5
 
 
 def main():
-    curve_file = Path("sample_curve.xlsx")
-    run_slope_curve(curve_file, GROUP)
+    # Baseline (Fiera published J) + implied (BoC RF + held H). Unique names required.
+    curves = [
+        Path("docs/partner-review/2026-11-20/slope_inputs/G5_baseline_Fiera_J_2026-10-30.xlsx"),
+        Path("docs/partner-review/2026-11-20/slope_inputs/G5_implied_BoC_rf_2026-11-04_H_2026-10-30.xlsx"),
+    ]
+    for curve_file in curves:
+        run_slope_curve(curve_file, GROUP)
 
 
 if __name__ == "__main__":

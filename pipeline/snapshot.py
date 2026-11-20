@@ -107,6 +107,8 @@ def build_snapshot(
     rf: RfMode = "auto",
     boc_snapshot: Optional[Path] = None,
     refresh_rf: bool = True,
+    lag_bridge: bool = True,
+    fetch_valet: bool = True,
 ) -> Dict[str, Any]:
     """Build a schema 1.0 monitor snapshot.
 
@@ -117,9 +119,10 @@ def build_snapshot(
     rebuilt
         Implied = ``curve_builder`` column J (live BoC CSV pull by default when
         ``refresh_rf``; otherwise cached ``data/risk_free`` / Fiera fixture RF)
-        + hold_latest H. Pricing basis remains the **prior publication** column J
-        from history — the trigger still measures move vs the last locked pricing
-        baseline, not vs a rebuilt prior.
+        + hold_latest H. During BoC publish lag, Valet key-rate shift bridge is
+        ON by default (``lag_bridge``). Pricing basis remains the **prior
+        publication** column J from history — the trigger still measures move vs
+        the last locked pricing baseline, not vs a rebuilt prior.
 
     Thresholds
     ----------
@@ -160,6 +163,8 @@ def build_snapshot(
             rf=rf,
             boc_snapshot=boc_snapshot,
             refresh_rf=refresh_rf,
+            lag_bridge=lag_bridge,
+            fetch_valet=fetch_valet,
         )
     else:
         parts = snapshot_modes.build_fixture_mode(

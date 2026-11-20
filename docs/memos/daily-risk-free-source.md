@@ -48,7 +48,7 @@ Accept the publication lag as an explicit product property of this source (docum
 
 | Gap | Detail | Proposed fill |
 | --- | --- | --- |
-| **Publication lag** | Weekly file refresh; ~2-week structural lag (verified ~19 calendar days as of memo date) | Hold **last published zero curve** as `rf_asof`; stamp `source_publish_lag_days`. Optional: show Valet benchmark Δ vs last common date as *market drift since RF as-of* (context only; do not replace zeros). |
+| **Publication lag** | Weekly file refresh; ~2-week structural lag (verified ~19 calendar days as of memo date) | Hold **last published zero curve** as `rf_asof`; stamp `source_publish_lag_days`. **Lag bridge (default):** shift held annual zeros by Valet benchmark Δ since `rf_asof` (see `docs/memos/valet-lag-bridge.md`). Valet remains overlay — not a second primary. |
 | **Holidays / missing rows** | BoC marks missing days `na` | Drop `na` rows; do not interpolate across holidays into the official series. |
 | **No Valet endpoint** | Zeros are CSV-only (stats lookup), not `/valet/observations/...` | One dedicated CSV fetcher with content-type / header validation; cache last good file on HTML/maintenance responses. |
 | **Maturity holes inside 1–30** | Grid is quarterly; Fiera/Slope want **annual** forwards | Interpolate zeros on **integer years 1…30** from neighboring `ZC{nnnn}YR` columns (linear in maturity on continuously compounded zeros is acceptable v1). |

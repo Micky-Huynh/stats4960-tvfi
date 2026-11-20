@@ -50,10 +50,12 @@ def write_construction_record(built: Dict[str, Any]) -> Path:
         "as_of": as_of,
         "rf_source": built["rf_source"],
         "rf_as_of": built.get("rf_as_of", as_of),
+        "rf_effective_as_of": built.get("rf_effective_as_of"),
         "premium_policy": built["premium_policy"],
         "premium_as_of": as_of,
         "params_as_of": built.get("params_as_of"),
         "lag_note": built.get("lag_note"),
+        "lag_bridge": built.get("lag_bridge"),
         "xlsx_path": str(built["xlsx_path"]),
         "csv_path": str(built["csv_path"]),
     }
@@ -67,6 +69,8 @@ def select_rebuilt_build(
     rf: RfMode,
     boc_snapshot: Optional[Path],
     refresh_rf: bool = True,
+    lag_bridge: bool = True,
+    fetch_valet: bool = True,
 ) -> tuple[Dict[str, Any], Optional[str]]:
     """Build rebuilt column J, preferring BoC RF when available.
 
@@ -77,22 +81,30 @@ def select_rebuilt_build(
     CSV intake runs first so the curve uses the newest published zeros.
     ``load_risk_free_for_builder`` soft-falls back to a cached snapshot if the
     download fails. Pass ``refresh_rf=False`` or ``--boc-snapshot`` to pin cache.
+
+    ``lag_bridge`` (default True) shifts held BoC zeros by Valet benchmark Δ
+    while the zero curve is lagged (see ``pipeline.lag_bridge``).
     """
     from . import boc_intake
 
     force_boc = rf == "boc" or boc_snapshot is not None
     force_fiera = rf == "fiera"
+    boc_kwargs = {
+        "lag_bridge": lag_bridge,
+        "fetch_valet": fetch_valet,
+    }
 
     if force_fiera:
         return curve_builder.build_from_fixtures(as_of=rebuilt_as_of), None
 
-    # Explicit pin: never re-download.
+    # Explicit pin: never re-download BoC; Valet may still refresh for bridge.
     if boc_snapshot is not None:
         return (
             curve_builder.build_from_boc(
                 as_of=rebuilt_as_of,
                 boc_snapshot=boc_snapshot,
                 try_download=False,
+                **boc_kwargs,
             ),
             None,
         )
@@ -106,6 +118,7 @@ def select_rebuilt_build(
                         as_of=rebuilt_as_of,
                         boc_snapshot=None,
                         try_download=True,
+                        **boc_kwargs,
                     ),
                     None,
                 )
@@ -121,6 +134,7 @@ def select_rebuilt_build(
                         as_of=rebuilt_as_of,
                         boc_snapshot=snap_path,
                         try_download=False,
+                        **boc_kwargs,
                     ),
                     None,
                 )
@@ -131,6 +145,7 @@ def select_rebuilt_build(
                         as_of=rebuilt_as_of,
                         boc_snapshot=None,
                         try_download=True,
+                        **boc_kwargs,
                     ),
                     None,
                 )
@@ -207,6 +222,8 @@ def build_rebuilt_mode(
     rf: RfMode,
     boc_snapshot: Optional[Path],
     refresh_rf: bool = True,
+    lag_bridge: bool = True,
+    fetch_valet: bool = True,
 ) -> ModeParts:
     """Implied = curve_builder column J (BoC RF preferred)."""
     built, rf_fallback_note = select_rebuilt_build(
@@ -214,6 +231,8 @@ def build_rebuilt_mode(
         rf=rf,
         boc_snapshot=boc_snapshot,
         refresh_rf=refresh_rf,
+        lag_bridge=lag_bridge,
+        fetch_valet=fetch_valet,
     )
     record_path = write_construction_record(built)
     implied_fwd = built["forwards"]
@@ -233,23 +252,39 @@ def build_rebuilt_mode(
         current_pct = fh.to_percent(fh.pick_at_maturities(canada_curr, maturities))
         canada_as_of = current_date
 
-    using_boc = str(built["rf_source"]).startswith("boc_")
+    using_boc = str(built["rf_source"]).startswith("boc")
+    bridge_meta = built.get("lag_bridge") or {}
+    bridge_on = bool(bridge_meta.get("applied"))
     if using_boc:
         implied_construction = (
             "Rebuilt Illiquid column J via pipeline.curve_builder "
             f"(rf_source={built['rf_source']}, premium_policy={built['premium_policy']})"
         )
+        bridge_note = ""
+        if bridge_on:
+            bridge_note = (
+                f" Valet lag bridge applied (base {bridge_meta.get('valet_base_asof')} → "
+                f"live {bridge_meta.get('valet_live_asof')}; "
+                f"max|Δ|={bridge_meta.get('max_abs_shift_bp'):.1f} bp)."
+            )
         implied_construction_note = (
             "Implied curve is reconstructed annual forwards (column J) from BoC "
             f"zero-coupon RF (rf_as_of={rf_as_of}) + held liquidity premium "
             f"(column H as of {current_date}). Pricing basis stays prior Fiera "
-            f"publication column J ({pricing_date})."
+            f"publication column J ({pricing_date}).{bridge_note}"
         )
-        rebuild_step = "rebuild_column_j_boc_rf"
-        rf_label = f"BoC RF as of {rf_as_of}"
+        rebuild_step = (
+            "rebuild_column_j_boc_rf_valet_bridge" if bridge_on else "rebuild_column_j_boc_rf"
+        )
+        rf_label = (
+            f"BoC RF as of {rf_as_of} + Valet lag bridge"
+            if bridge_on
+            else f"BoC RF as of {rf_as_of}"
+        )
         premium_note = (
             "Column H held under hold_latest_publication; implied J rebuilt from "
-            f"BoC zero-coupon CSV RF (rf_as_of={rf_as_of})."
+            f"BoC zero-coupon CSV RF (rf_as_of={rf_as_of})"
+            + (" with Valet key-rate lag bridge." if bridge_on else ".")
         )
     else:
         implied_construction = (
@@ -294,6 +329,10 @@ def build_rebuilt_mode(
         construction_meta["rf_fallback_note"] = rf_fallback_note
     if built.get("rf_publish_lag_days") is not None:
         construction_meta["rf_publish_lag_days"] = built["rf_publish_lag_days"]
+    if built.get("rf_effective_as_of"):
+        construction_meta["rf_effective_as_of"] = built["rf_effective_as_of"]
+    if bridge_meta:
+        construction_meta["lag_bridge"] = bridge_meta
 
     return ModeParts(
         implied_pct=implied_pct,

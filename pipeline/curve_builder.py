@@ -469,8 +469,15 @@ def build_from_boc(
     n_durations: int = N_DURATIONS,
     boc_snapshot: Optional[Path] = None,
     try_download: bool = True,
+    lag_bridge: bool = True,
+    fetch_valet: bool = True,
 ) -> dict:
-    """Build column J from BoC zeros (annual effective 1–30) + held H + static params."""
+    """Build column J from BoC zeros (annual effective 1–30) + held H + static params.
+
+    When ``lag_bridge`` is True (default), and the BoC snapshot is lagged vs
+    calendar with a newer Valet benchmark print, annual RF spots are shifted by
+    interpolated Valet Δ before construction (see ``pipeline.lag_bridge``).
+    """
     from pipeline.boc_intake import load_risk_free_for_builder
 
     params = load_static_params(params_path)
@@ -480,8 +487,57 @@ def build_from_boc(
         try_download=try_download,
     )
 
+    bridge_meta: Optional[dict] = None
+    rf_source = str(snapshot.get("rf_source") or "boc_zero_coupon_csv")
+    lag_note = snapshot.get("lag_note")
+    effective_rf_asof = rf_as_of
+
+    if lag_bridge:
+        from pipeline import lag_bridge as lb
+        from pipeline import valet_intake
+
+        valet_snap: Optional[dict] = None
+        if fetch_valet:
+            try:
+                valet_snap, _ = valet_intake.fetch_and_store(recent=60)
+            except Exception as exc:  # noqa: BLE001 — soft fallback
+                print(
+                    f"Valet live download unavailable ({exc}); "
+                    "lag bridge will try cache",
+                    file=sys.stderr,
+                )
+        if valet_snap is None:
+            try:
+                valet_snap = valet_intake.load_snapshot()
+            except Exception as exc:  # noqa: BLE001
+                bridge_meta = {
+                    "method": lb.METHOD_ID,
+                    "applied": False,
+                    "enabled": True,
+                    "reason": f"Valet unavailable: {exc}",
+                    "rf_asof": rf_as_of,
+                }
+                valet_snap = None
+
+        if valet_snap is not None:
+            risk_free, bridge_meta = lb.bridge_boc_snapshot(
+                snapshot, valet_snap, enabled=True
+            )
+            if bridge_meta.get("applied"):
+                rf_source = "boc_zero_coupon_csv+valet_lag_bridge"
+                live = bridge_meta.get("valet_live_asof")
+                effective_rf_asof = f"{rf_as_of}+valet_{live}"
+                lag_note = (
+                    f"{snapshot.get('lag_note') or ''} "
+                    f"Lag bridge ON: Valet key-rate shift "
+                    f"(base {bridge_meta.get('valet_base_asof')} → "
+                    f"live {live}; max|Δ|="
+                    f"{bridge_meta.get('max_abs_shift_bp'):.1f} bp)."
+                ).strip()
+
+    stem_rf = effective_rf_asof.replace("+", "_").replace(" ", "")
     forwards = build_column_j(risk_free, premium, params, n_durations=n_durations)
-    stem = f"illiquid_col_j_boc_rf_{rf_as_of}_h_{prem_as_of}"
+    stem = f"illiquid_col_j_boc_rf_{stem_rf}_h_{prem_as_of}"
     xlsx_path = out_dir / f"{stem}.xlsx"
     csv_path = out_dir / f"{stem}.csv"
     write_slope_xlsx(forwards, xlsx_path, n_durations=n_durations)
@@ -490,12 +546,14 @@ def build_from_boc(
     return {
         "as_of": prem_as_of,
         "premium_policy": PREMIUM_POLICY,
-        "rf_source": str(snapshot.get("rf_source") or "boc_zero_coupon_csv"),
+        "rf_source": rf_source,
         "rf_as_of": rf_as_of,
+        "rf_effective_as_of": effective_rf_asof,
         "rf_snapshot_path": snap_path,
         "rf_is_fixture": bool(snapshot.get("is_fixture")),
         "rf_publish_lag_days": (snapshot.get("gaps") or {}).get("publish_lag_days"),
-        "lag_note": snapshot.get("lag_note"),
+        "lag_note": lag_note,
+        "lag_bridge": bridge_meta,
         "params_as_of": params.raw.get("as_of"),
         "forwards": forwards,
         "xlsx_path": xlsx_path,
@@ -539,6 +597,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         help="Optional path to data/risk_free/YYYY-MM-DD.json (implies --rf boc)",
     )
     parser.add_argument(
+        "--no-lag-bridge",
+        action="store_true",
+        help="Disable Valet key-rate lag bridge (default ON for --rf boc when lagged)",
+    )
+    parser.add_argument(
+        "--no-fetch-valet",
+        action="store_true",
+        help="Use cached Valet benchmarks only (no live Valet pull)",
+    )
+    parser.add_argument(
         "--out-dir",
         type=Path,
         default=CURVES_DIR,
@@ -563,6 +631,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             as_of=args.as_of,
             out_dir=args.out_dir,
             boc_snapshot=args.boc_snapshot,
+            lag_bridge=not args.no_lag_bridge,
+            fetch_valet=not args.no_fetch_valet,
         )
     else:
         result = build_from_fixtures(as_of=args.as_of, out_dir=args.out_dir)
@@ -575,6 +645,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"rf_snapshot:     {result['rf_snapshot_path']}")
         print(f"rf_is_fixture:   {result.get('rf_is_fixture')}")
         print(f"rf_lag_days:     {result.get('rf_publish_lag_days')}")
+    bridge = result.get("lag_bridge") or {}
+    if bridge:
+        print(f"lag_bridge:      applied={bridge.get('applied')} ({bridge.get('reason')})")
+        if bridge.get("applied"):
+            print(
+                f"bridge Δ bp:     max={bridge.get('max_abs_shift_bp'):.2f} "
+                f"mean={bridge.get('mean_abs_shift_bp'):.2f}"
+            )
     print(f"wrote xlsx:      {result['xlsx_path']}")
     print(f"wrote csv:       {result['csv_path']}")
 

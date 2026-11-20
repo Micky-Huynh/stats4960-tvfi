@@ -42,3 +42,6 @@ venv/
 runs.csv
 dry_run_state.json
 exports/
+
+# Fitted lag-bridge models (regenerate via pipeline.lag_bridge_mlr --train)
+data/models/

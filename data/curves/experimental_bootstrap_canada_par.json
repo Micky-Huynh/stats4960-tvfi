@@ -1,0 +1,646 @@
+{
+  "experimental": true,
+  "method": "ioa_cm1_annual_par_bootstrap",
+  "method_note": "Experimental IoA/CM1 annual-par bootstrap (par \u2192 DF \u2192 annual-effective zero \u2192 1y forward). Does not fill BoC publication lag; primary RF remains BoC zeros + hold.",
+  "template": "https://github.com/omartinsky/QuantAndFinancial/blob/master/yield_curve_bootstrapping/bootstrapping.ipynb",
+  "source": "fiera_latest:market_curves.csv:canada_par",
+  "max_year": 30,
+  "curve": [
+    {
+      "year": 1.0,
+      "par": 0.03009041287958869,
+      "discount_factor": 0.9707885710774923,
+      "zero_annual_effective": 0.03009041287958869,
+      "forward_1y": 0.03009041287958869
+    },
+    {
+      "year": 2.0,
+      "par": 0.03270528944718487,
+      "discount_factor": 0.9375860554652561,
+      "zero_annual_effective": 0.03274816081046761,
+      "forward_1y": 0.03541276602685839
+    },
+    {
+      "year": 3.0,
+      "par": 0.03409610209180447,
+      "discount_factor": 0.904105394085499,
+      "zero_annual_effective": 0.034174075022754824,
+      "forward_1y": 0.037031812439989764
+    },
+    {
+      "year": 4.0,
+      "par": 0.03495827239190752,
+      "discount_factor": 0.8712240690227951,
+      "zero_annual_effective": 0.03506478615492559,
+      "forward_1y": 0.03774152509306239
+    },
+    {
+      "year": 5.0,
+      "par": 0.035599975056471056,
+      "discount_factor": 0.8389921274820654,
+      "zero_annual_effective": 0.03573445265940589,
+      "forward_1y": 0.038417454091568715
+    },
+    {
+      "year": 6.0,
+      "par": 0.03615135156796945,
+      "discount_factor": 0.8073129642242454,
+      "zero_annual_effective": 0.03631792999622396,
+      "forward_1y": 0.039240250883696426
+    },
+    {
+      "year": 7.0,
+      "par": 0.03666294511892754,
+      "discount_factor": 0.7761309205551011,
+      "zero_annual_effective": 0.036868243631293485,
+      "forward_1y": 0.04017626774467686
+    },
+    {
+      "year": 8.0,
+      "par": 0.03715117533217227,
+      "discount_factor": 0.7454551822914559,
+      "zero_annual_effective": 0.03740254173086388,
+      "forward_1y": 0.0411503454431037
+    },
+    {
+      "year": 9.0,
+      "par": 0.03761887299548028,
+      "discount_factor": 0.7153404072579302,
+      "zero_annual_effective": 0.037923270741839765,
+      "forward_1y": 0.04209852362312749
+    },
+    {
+      "year": 10.0,
+      "par": 0.0380642433060252,
+      "discount_factor": 0.6858634456877819,
+      "zero_annual_effective": 0.03842762805437849,
+      "forward_1y": 0.04297788685995485
+    },
+    {
+      "year": 11.0,
+      "par": 0.03848456037081349,
+      "discount_factor": 0.6571062097779327,
+      "zero_annual_effective": 0.038911573675550315,
+      "forward_1y": 0.04376345175548968
+    },
+    {
+      "year": 12.0,
+      "par": 0.038877528054925614,
+      "discount_factor": 0.6291452911988834,
+      "zero_annual_effective": 0.039371380363548036,
+      "forward_1y": 0.04444270500025138
+    },
+    {
+      "year": 13.0,
+      "par": 0.03924165251022793,
+      "discount_factor": 0.6020465866335325,
+      "zero_annual_effective": 0.03980411278952878,
+      "forward_1y": 0.04501097617192529
+    },
+    {
+      "year": 14.0,
+      "par": 0.03957622904469549,
+      "discount_factor": 0.5758631226288219,
+      "zero_annual_effective": 0.040207671343915896,
+      "forward_1y": 0.04546820759277437
+    },
+    {
+      "year": 15.0,
+      "par": 0.039881203734528414,
+      "discount_factor": 0.5506347445405919,
+      "zero_annual_effective": 0.04058068227981426,
+      "forward_1y": 0.04581690192702714
+    },
+    {
+      "year": 16.0,
+      "par": 0.040157015497019666,
+      "discount_factor": 0.5263888058454554,
+      "zero_annual_effective": 0.040922352790714545,
+      "forward_1y": 0.04606089344205189
+    },
+    {
+      "year": 17.0,
+      "par": 0.04040445648873381,
+      "discount_factor": 0.5031413384561928,
+      "zero_annual_effective": 0.04123233631774448,
+      "forward_1y": 0.046204645916381404
+    },
+    {
+      "year": 18.0,
+      "par": 0.040624560363540674,
+      "discount_factor": 0.48089840717183047,
+      "zero_annual_effective": 0.041510621730907804,
+      "forward_1y": 0.0462528695305382
+    },
+    {
+      "year": 19.0,
+      "par": 0.040818517136175014,
+      "discount_factor": 0.45965748597718015,
+      "zero_annual_effective": 0.041757447303371276,
+      "forward_1y": 0.04621032364891109
+    },
+    {
+      "year": 20.0,
+      "par": 0.04098761008488849,
+      "discount_factor": 0.4394087720252346,
+      "zero_annual_effective": 0.04197323599871128,
+      "forward_1y": 0.046081724446736194
+    },
+    {
+      "year": 21.0,
+      "par": 0.04113316978293713,
+      "discount_factor": 0.4201363971913391,
+      "zero_annual_effective": 0.04215854765964999,
+      "forward_1y": 0.04587170967032028
+    },
+    {
+      "year": 22.0,
+      "par": 0.041256541020666004,
+      "discount_factor": 0.4018195213681094,
+      "zero_annual_effective": 0.04231404405446604,
+      "forward_1y": 0.045584833113295975
+    },
+    {
+      "year": 23.0,
+      "par": 0.0413590592692239,
+      "discount_factor": 0.3844333047487201,
+      "zero_annual_effective": 0.04244046347738539,
+      "forward_1y": 0.045225573342958736
+    },
+    {
+      "year": 24.0,
+      "par": 0.041442034150746654,
+      "discount_factor": 0.36794976318022643,
+      "zero_annual_effective": 0.04253860234601636,
+      "forward_1y": 0.0447983480843277
+    },
+    {
+      "year": 25.0,
+      "par": 0.04150673803717475,
+      "discount_factor": 0.35233851405433725,
+      "zero_annual_effective": 0.04260930187090084,
+      "forward_1y": 0.04430752955801376
+    },
+    {
+      "year": 26.0,
+      "par": 0.04155439840096409,
+      "discount_factor": 0.33756742169516885,
+      "zero_annual_effective": 0.042653438368241314,
+      "forward_1y": 0.04375745824342925
+    },
+    {
+      "year": 27.0,
+      "par": 0.04158619291188281,
+      "discount_factor": 0.323603151659264,
+      "zero_annual_effective": 0.04267191616185495,
+      "forward_1y": 0.043152453751774456
+    },
+    {
+      "year": 28.0,
+      "par": 0.04160324654467762,
+      "discount_factor": 0.3104116432549296,
+      "zero_annual_effective": 0.04266566229880686,
+      "forward_1y": 0.04249682217461381
+    },
+    {
+      "year": 29.0,
+      "par": 0.041606630158575575,
+      "discount_factor": 0.297958509177642,
+      "zero_annual_effective": 0.04263562250845698,
+      "forward_1y": 0.04179485966572294
+    },
+    {
+      "year": 30.0,
+      "par": 0.04159736015170212,
+      "discount_factor": 0.2862093705926303,
+      "zero_annual_effective": 0.04258275798610689,
+      "forward_1y": 0.04105085225086702
+    }
+  ],
+  "comparisons": {
+    "fiera_liquid_reference_spot": [
+      {
+        "year": 1,
+        "bootstrap_zero": 0.03009041287958869,
+        "reference_zero": 0.030557256802202736,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -4.668439226140457
+      },
+      {
+        "year": 2,
+        "bootstrap_zero": 0.03274816081046761,
+        "reference_zero": 0.03323859286307331,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -4.904320526057035
+      },
+      {
+        "year": 3,
+        "bootstrap_zero": 0.034174075022754824,
+        "reference_zero": 0.03483002132248769,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -6.55946299732868
+      },
+      {
+        "year": 4,
+        "bootstrap_zero": 0.03506478615492559,
+        "reference_zero": 0.03611953078329486,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -10.547446283692766
+      },
+      {
+        "year": 5,
+        "bootstrap_zero": 0.03573445265940589,
+        "reference_zero": 0.03736084242654072,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -16.263897671348268
+      },
+      {
+        "year": 6,
+        "bootstrap_zero": 0.03631792999622396,
+        "reference_zero": 0.03861396162886192,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -22.960316326379598
+      },
+      {
+        "year": 7,
+        "bootstrap_zero": 0.036868243631293485,
+        "reference_zero": 0.0398746700524232,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -30.06426421129714
+      },
+      {
+        "year": 8,
+        "bootstrap_zero": 0.03740254173086388,
+        "reference_zero": 0.041122089561910394,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -37.19547831046513
+      },
+      {
+        "year": 9,
+        "bootstrap_zero": 0.037923270741839765,
+        "reference_zero": 0.042334931439294635,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -44.116606974548695
+      },
+      {
+        "year": 10,
+        "bootstrap_zero": 0.03842762805437849,
+        "reference_zero": 0.04349609880201579,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -50.68470747637298
+      },
+      {
+        "year": 11,
+        "bootstrap_zero": 0.038911573675550315,
+        "reference_zero": 0.044593202943377805,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -56.8162926782749
+      },
+      {
+        "year": 12,
+        "bootstrap_zero": 0.039371380363548036,
+        "reference_zero": 0.045617840478328064,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -62.46460114780028
+      },
+      {
+        "year": 13,
+        "bootstrap_zero": 0.03980411278952878,
+        "reference_zero": 0.04656465440336928,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -67.605416138405
+      },
+      {
+        "year": 14,
+        "bootstrap_zero": 0.040207671343915896,
+        "reference_zero": 0.047430507277253196,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -72.228359333373
+      },
+      {
+        "year": 15,
+        "bootstrap_zero": 0.04058068227981426,
+        "reference_zero": 0.048213839662852906,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -76.33157383038645
+      },
+      {
+        "year": 16,
+        "bootstrap_zero": 0.040922352790714545,
+        "reference_zero": 0.048914201406533755,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -79.91848615819211
+      },
+      {
+        "year": 17,
+        "bootstrap_zero": 0.04123233631774448,
+        "reference_zero": 0.049531921147331646,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -82.99584829587168
+      },
+      {
+        "year": 18,
+        "bootstrap_zero": 0.041510621730907804,
+        "reference_zero": 0.05006787929094321,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -85.57257560035406
+      },
+      {
+        "year": 19,
+        "bootstrap_zero": 0.041757447303371276,
+        "reference_zero": 0.05052335582424947,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -87.65908520878197
+      },
+      {
+        "year": 20,
+        "bootstrap_zero": 0.04197323599871128,
+        "reference_zero": 0.05089993115062803,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -89.26695151916755
+      },
+      {
+        "year": 21,
+        "bootstrap_zero": 0.04215854765964999,
+        "reference_zero": 0.05119942386203431,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -90.40876202384321
+      },
+      {
+        "year": 22,
+        "bootstrap_zero": 0.04231404405446604,
+        "reference_zero": 0.051423853735068324,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -91.09809680602287
+      },
+      {
+        "year": 23,
+        "bootstrap_zero": 0.04244046347738539,
+        "reference_zero": 0.0515754214195129,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -91.34957942127507
+      },
+      {
+        "year": 24,
+        "bootstrap_zero": 0.04253860234601636,
+        "reference_zero": 0.05165649855934169,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -91.1789621332533
+      },
+      {
+        "year": 25,
+        "bootstrap_zero": 0.04260930187090084,
+        "reference_zero": 0.05166962370825841,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -90.60321837357569
+      },
+      {
+        "year": 26,
+        "bootstrap_zero": 0.042653438368241314,
+        "reference_zero": 0.051617500581037,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -89.64062212795686
+      },
+      {
+        "year": 27,
+        "bootstrap_zero": 0.04267191616185495,
+        "reference_zero": 0.0515029960699638,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -88.3107990810885
+      },
+      {
+        "year": 28,
+        "bootstrap_zero": 0.04266566229880686,
+        "reference_zero": 0.05132913615786605,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -86.6347385905919
+      },
+      {
+        "year": 29,
+        "bootstrap_zero": 0.04263562250845698,
+        "reference_zero": 0.051099098444173305,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -84.63475935716322
+      },
+      {
+        "year": 30,
+        "bootstrap_zero": 0.04258275798610689,
+        "reference_zero": 0.050816200508886286,
+        "reference": "fiera_liquid_reference_spot",
+        "diff_bp": -82.33442522779397
+      }
+    ],
+    "fiera_illiquid_construction_rf_col_E": [
+      {
+        "year": 1,
+        "bootstrap_zero": 0.03009041287958869,
+        "reference_zero": 0.03009041287958869,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 2,
+        "bootstrap_zero": 0.03274816081046761,
+        "reference_zero": 0.03274816081046761,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 3,
+        "bootstrap_zero": 0.034174075022754824,
+        "reference_zero": 0.034174075022754824,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 4,
+        "bootstrap_zero": 0.03506478615492559,
+        "reference_zero": 0.03506478615492559,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 5,
+        "bootstrap_zero": 0.03573445265940589,
+        "reference_zero": 0.03573445265940589,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 6,
+        "bootstrap_zero": 0.03631792999622396,
+        "reference_zero": 0.03631792999622396,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 7,
+        "bootstrap_zero": 0.036868243631293485,
+        "reference_zero": 0.036868243631293485,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 8,
+        "bootstrap_zero": 0.03740254173086388,
+        "reference_zero": 0.03740254173086388,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 9,
+        "bootstrap_zero": 0.037923270741839765,
+        "reference_zero": 0.037923270741839765,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 10,
+        "bootstrap_zero": 0.03842762805437849,
+        "reference_zero": 0.03842762805437849,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 11,
+        "bootstrap_zero": 0.038911573675550315,
+        "reference_zero": 0.038911573675550315,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 12,
+        "bootstrap_zero": 0.039371380363548036,
+        "reference_zero": 0.039371380363548036,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 13,
+        "bootstrap_zero": 0.03980411278952878,
+        "reference_zero": 0.03980411278952878,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 14,
+        "bootstrap_zero": 0.040207671343915896,
+        "reference_zero": 0.040207671343915896,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 15,
+        "bootstrap_zero": 0.04058068227981426,
+        "reference_zero": 0.04058068227981426,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 16,
+        "bootstrap_zero": 0.040922352790714545,
+        "reference_zero": 0.040922352790714545,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 17,
+        "bootstrap_zero": 0.04123233631774448,
+        "reference_zero": 0.04123233631774448,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 18,
+        "bootstrap_zero": 0.041510621730907804,
+        "reference_zero": 0.041510621730907804,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 19,
+        "bootstrap_zero": 0.041757447303371276,
+        "reference_zero": 0.041757447303371276,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 20,
+        "bootstrap_zero": 0.04197323599871128,
+        "reference_zero": 0.04197323599871128,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 21,
+        "bootstrap_zero": 0.04215854765964999,
+        "reference_zero": 0.04215854765964999,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 22,
+        "bootstrap_zero": 0.04231404405446604,
+        "reference_zero": 0.04231404405446604,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 23,
+        "bootstrap_zero": 0.04244046347738539,
+        "reference_zero": 0.04244046347738539,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 24,
+        "bootstrap_zero": 0.04253860234601636,
+        "reference_zero": 0.04253860234601636,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 25,
+        "bootstrap_zero": 0.04260930187090084,
+        "reference_zero": 0.04260930187090084,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 26,
+        "bootstrap_zero": 0.042653438368241314,
+        "reference_zero": 0.042653438368241314,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 27,
+        "bootstrap_zero": 0.04267191616185495,
+        "reference_zero": 0.04267191616185517,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": -2.220446049250313e-12
+      },
+      {
+        "year": 28,
+        "bootstrap_zero": 0.04266566229880686,
+        "reference_zero": 0.04266566229880686,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 29,
+        "bootstrap_zero": 0.04263562250845698,
+        "reference_zero": 0.04263562250845698,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      },
+      {
+        "year": 30,
+        "bootstrap_zero": 0.04258275798610689,
+        "reference_zero": 0.04258275798610689,
+        "reference": "fiera_illiquid_construction_rf_col_E",
+        "diff_bp": 0.0
+      }
+    ]
+  }
+}

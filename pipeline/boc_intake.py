@@ -106,8 +106,24 @@ def _parse_rate(cell: str) -> Optional[float]:
         return None
 
 
-def parse_boc_csv(text: str) -> Tuple[str, Dict[float, float]]:
-    """Parse BoC CSV; return (latest_observation_date, {tenor_years: continuous_zero})."""
+def _boc_tenor_columns(headers: Sequence[str]) -> List[Tuple[int, float]]:
+    """Map ZC###YR header indices → tenor years."""
+    tenor_cols: List[Tuple[int, float]] = []
+    for i, name in enumerate(headers):
+        if not name.startswith("ZC") or not name.endswith("YR"):
+            continue
+        body = name[2:-2]
+        if not body.isdigit():
+            continue
+        tenor_cols.append((i, int(body) / 100.0))
+    return tenor_cols
+
+
+def parse_boc_csv_all_rows(text: str) -> List[Tuple[str, Dict[float, float]]]:
+    """Parse BoC CSV into chronological (date, {tenor: continuous_zero}) rows.
+
+    Skips incomplete / ``na`` observation days. Used for ridge/PCA training panels.
+    """
     reader = csv.reader(io.StringIO(text))
     try:
         header_row = next(reader)
@@ -118,22 +134,11 @@ def parse_boc_csv(text: str) -> Tuple[str, Dict[float, float]]:
     if not headers or headers[0] != "Date":
         raise RuntimeError(f"Unexpected BoC CSV header: {headers[:5]!r}")
 
-    # Map ZC###YR -> tenor years
-    tenor_cols: List[Tuple[int, float]] = []
-    for i, name in enumerate(headers):
-        if not name.startswith("ZC") or not name.endswith("YR"):
-            continue
-        body = name[2:-2]
-        if not body.isdigit():
-            continue
-        tenor_cols.append((i, int(body) / 100.0))
-
+    tenor_cols = _boc_tenor_columns(headers)
     if not tenor_cols:
         raise RuntimeError("No ZC*YR columns found in BoC CSV")
 
-    latest_date: Optional[str] = None
-    latest_rates: Dict[float, float] = {}
-
+    rows: List[Tuple[str, Dict[float, float]]] = []
     for row in reader:
         if not row or not row[0].strip():
             continue
@@ -151,12 +156,17 @@ def parse_boc_csv(text: str) -> Tuple[str, Dict[float, float]]:
             rates[tenor] = val
         if not ok or not rates:
             continue
-        latest_date = obs
-        latest_rates = rates
+        rows.append((obs, rates))
 
-    if latest_date is None or not latest_rates:
+    if not rows:
         raise RuntimeError("No complete non-na BoC zero-curve row in CSV window")
-    return latest_date, latest_rates
+    return rows
+
+
+def parse_boc_csv(text: str) -> Tuple[str, Dict[float, float]]:
+    """Parse BoC CSV; return (latest_observation_date, {tenor_years: continuous_zero})."""
+    rows = parse_boc_csv_all_rows(text)
+    return rows[-1]
 
 
 def interpolate_annual_tenors(
