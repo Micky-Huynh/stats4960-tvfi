@@ -36,6 +36,8 @@ const CONFIG = {
     `../../data/curves/lag_bootstrap/${method}/latest.json`,
   // Multi-sheet Excel of all predicted zeros + IoA bootstrap curves.
   lagBootstrapXlsxUrl: '../../data/curves/lag_bootstrap/lag_bootstrap_curves.xlsx',
+  // Walk-forward per-maturity MoE (SE / RMSE / P90|e|) from pipeline.lag_error_report.
+  lagErrorReportUrl: '../../data/curves/lag_error_report.json',
   // Official held BoC annual zeros (dated snaps) for the "current" curve cutoff.
   bocSnapshotsUrls: [
     '../../data/risk_free/2026-10-21.json',
@@ -196,6 +198,8 @@ const state = {
   source: '',
   nowcast: null,    // optional lag_bridge_mlr results JSON
   lagBootstrap: null, // { summary, byMethod, selectedDay, dayCache, days }
+  lagErrorReport: null, // lag_error_report.json (per-maturity SE / MoE)
+  lagMoeMethod: 'ridge',
   bocHistory: [],   // [{ asof, zeros: {1..30} }] sorted
   productionShift: null, // lag_bridge applied JSON
   lagBootView: 'time',   // 'time' | 'maturity'
@@ -561,10 +565,15 @@ async function loadLagBootstrap() {
   }
 }
 
+async function loadLagErrorReport() {
+  state.lagErrorReport = await fetchJsonQuiet(CONFIG.lagErrorReportUrl);
+}
+
 async function loadInitialSnapshot() {
   // FUTURE (Cloudflare): this fetch will hit the Worker URL instead of a local file.
   await loadNowcast();
   await loadLagBootstrap();
+  await loadLagErrorReport();
   try {
     const res = await fetch(CONFIG.snapshotUrl, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -843,6 +852,18 @@ function lagBootRfAsOf() {
   );
 }
 
+function lagMoeStatsFor(method) {
+  const rep = state.lagErrorReport;
+  if (!rep || !rep.methods || !rep.methods[method]) return null;
+  return rep.methods[method];
+}
+
+function lagMoeRow(method, year) {
+  const block = lagMoeStatsFor(method);
+  if (!block || !Array.isArray(block.by_maturity_boot)) return null;
+  return block.by_maturity_boot.find((r) => Number(r.year) === Number(year)) || null;
+}
+
 function fillLagBootMethodCard(ui, payload) {
   const chip = $(ui.chip);
   const list = $(ui.list);
@@ -858,7 +879,11 @@ function fillLagBootMethodCard(ui, payload) {
   const z10 = lagBootSpotPct(payload, 10);
   const z30 = lagBootSpotPct(payload, 30);
   const f10 = lagBootFwdPct(payload, 10);
-  list.innerHTML = kvHtml([
+  const moe = lagMoeStatsFor(ui.key);
+  const r1 = lagMoeRow(ui.key, 1);
+  const r10 = lagMoeRow(ui.key, 10);
+  const r30 = lagMoeRow(ui.key, 30);
+  const rows = [
     ['Method', esc(payload.method || ui.key)],
     ['Valet as-of', esc(fmtDate(payload.valet_asof) || '—')],
     ['BoC rf_asof', esc(fmtDate(payload.boc_rf_asof) || '—')],
@@ -868,7 +893,80 @@ function fillLagBootMethodCard(ui, payload) {
       isNum(z30) ? z30.toFixed(3) : '—',
     ].join(' / ') + ' %'],
     ['Fwd y10 (boot)', isNum(f10) ? `${f10.toFixed(3)} %` : '—'],
+  ];
+  if (moe) {
+    rows.push([
+      'MoE (WF)',
+      `RMSE ${Number(moe.curve_rmse_bp).toFixed(2)} bp · mean SE ${Number(moe.mean_tenor_se_bp).toFixed(3)} bp · P90|e| ${Number(moe.p90_abs_curve_bp).toFixed(2)} bp`,
+    ]);
+    rows.push([
+      'SE y1 / y10 / y30',
+      [
+        r1 && isNum(r1.se_bp) ? Number(r1.se_bp).toFixed(3) : '—',
+        r10 && isNum(r10.se_bp) ? Number(r10.se_bp).toFixed(3) : '—',
+        r30 && isNum(r30.se_bp) ? Number(r30.se_bp).toFixed(3) : '—',
+      ].join(' / ') + ' bp',
+    ]);
+  }
+  list.innerHTML = kvHtml(rows);
+}
+
+function renderLagMoePanel() {
+  const chip = $('#lagMoeChip');
+  const summary = $('#lagMoeSummary');
+  const body = $('#lagMoeBody');
+  const desc = $('#lagMoeDesc');
+  if (!chip || !summary || !body) return;
+
+  const method = state.lagMoeMethod || 'ridge';
+  const moeSel = $('#selLagMoeMethod');
+  if (moeSel) moeSel.value = method;
+
+  const block = lagMoeStatsFor(method);
+  const rep = state.lagErrorReport;
+  if (!block || !Array.isArray(block.by_maturity_boot)) {
+    chip.textContent = 'MoE';
+    chip.className = 'chip off';
+    summary.innerHTML = kvHtml([
+      ['Status', 'No lag_error_report.json loaded'],
+      ['Refresh', '<span class="mono">python3 -m pipeline.lag_error_report --methods ridge,pca_ridge</span>'],
+    ]);
+    body.innerHTML = '<tr><td colspan="6">Serve from TVFI root so ../../data/curves/lag_error_report.json resolves.</td></tr>';
+    if (desc) {
+      desc.textContent =
+        'SE = sd(residuals)/√n at each tenor vs later BoC. Daily lag-bridge MoE — not clock-hourly.';
+    }
+    return;
+  }
+
+  chip.textContent = 'LOADED';
+  chip.className = 'chip on';
+  if (desc) {
+    desc.textContent =
+      `Walk-forward n=${block.n_days} (${fmtDate(rep.date_from) || '—'} → ${fmtDate(rep.date_to) || '—'}). ` +
+      'SE = sd/√n per tenor; P90|e| ≈ 90% MoE band. Valet business-daily — not clock-hourly.';
+  }
+  summary.innerHTML = kvHtml([
+    ['Method', esc(method)],
+    ['Curve RMSE', `${Number(block.curve_rmse_bp).toFixed(2)} bp`],
+    ['Mean tenor SE', `${Number(block.mean_tenor_se_bp).toFixed(3)} bp`],
+    ['Pooled P90|e|', `${Number(block.p90_abs_curve_bp).toFixed(2)} bp`],
+    ['Freshness', 'Valet-timed daily (not clock-hourly)'],
   ]);
+
+  const keyYears = new Set([1, 2, 3, 5, 7, 10, 15, 20, 25, 30]);
+  body.innerHTML = block.by_maturity_boot
+    .filter((r) => keyYears.has(Number(r.year)))
+    .map((r) => `
+      <tr>
+        <td>${esc(r.year)}y</td>
+        <td>${Number(r.bias_bp).toFixed(2)}</td>
+        <td>${Number(r.sd_bp).toFixed(2)}</td>
+        <td>${Number(r.se_bp).toFixed(3)}</td>
+        <td>${Number(r.rmse_bp).toFixed(2)}</td>
+        <td>${Number(r.p90_abs_bp).toFixed(2)}</td>
+      </tr>`)
+    .join('');
 }
 
 function setLagBootTip(html, clientX, clientY) {
@@ -1013,6 +1111,7 @@ function renderLagBootstrap() {
   desc.textContent =
     `Held BoC cutoff ${fmtDate(rfAsOf) || '—'} · predictions through Valet ${fmtDate(lb.selectedDay) || '—'} (experimental).`;
 
+  renderLagMoePanel();
   renderLagBootstrapLegend();
   renderLagBootstrapChart(byMethod, lb.selectedDay);
 }
@@ -1226,15 +1325,37 @@ function renderLagBootstrapChart(byMethod, day) {
     return;
   }
 
+  const moeMethod = state.lagMoeMethod || 'ridge';
+  const moeBlock = lagMoeStatsFor(moeMethod);
   if (view === 'maturity') {
     chartDesc.textContent =
-      `Maturity view · known BoC at rf_asof ${fmtDate(rfAsOf) || '—'} vs Ridge / PCA / PCA+Ridge for Valet ${fmtDate(day) || '—'} · hover names a curve · legend toggles`;
+      `Maturity view · BoC @ ${fmtDate(rfAsOf) || '—'} vs predictions for Valet ${fmtDate(day) || '—'} · ±P90 MoE band on ${moeMethod}` +
+      (moeBlock ? ` (P90|e|≈${Number(moeBlock.p90_abs_curve_bp).toFixed(2)} bp pooled)` : '') +
+      ' · hover for SE';
   } else {
+    const moeTenor = lagMoeRow(moeMethod, tenor);
     chartDesc.textContent =
-      `Time view · ${tenor}y · last known BoC through ${fmtDate(rfAsOf) || '—'}, then Ridge / PCA / PCA+Ridge fan out · hover names a curve · legend toggles`;
+      `Time view · ${tenor}y · BoC through ${fmtDate(rfAsOf) || '—'}; predictions fan out` +
+      (moeTenor
+        ? ` · ${moeMethod} ${tenor}y SE ${Number(moeTenor.se_bp).toFixed(3)} bp · P90|e| ${Number(moeTenor.p90_abs_bp).toFixed(2)} bp`
+        : '') +
+      ' · hover for SE';
   }
 
   const allVals = series.flatMap((se) => se.points.map((p) => p.pct)).filter(isNum);
+  // Include MoE band extents so y-scale fits
+  if (view === 'maturity' && moeBlock) {
+    const moeSe = series.find((s) => s.key === moeMethod);
+    if (moeSe) {
+      moeSe.points.forEach((p) => {
+        const row = lagMoeRow(moeMethod, p.year);
+        if (row && isNum(row.p90_abs_bp) && isNum(p.pct)) {
+          const half = Number(row.p90_abs_bp) / 100; // bp → %
+          allVals.push(p.pct + half, p.pct - half);
+        }
+      });
+    }
+  }
   if (!allVals.length) {
     host.innerHTML = '<p class="empty">No numeric points to chart.</p>';
     return;
@@ -1346,6 +1467,34 @@ function renderLagBootstrapChart(byMethod, day) {
     }
   }
 
+  // ±P90|e| MoE band around selected method (maturity view)
+  if (view === 'maturity' && moeBlock) {
+    const moeSe = series.find((s) => s.key === moeMethod);
+    if (moeSe && moeSe.points.length >= 2) {
+      const upper = [];
+      const lower = [];
+      for (const p of moeSe.points) {
+        const row = lagMoeRow(moeMethod, p.year);
+        if (!row || !isNum(row.p90_abs_bp) || !isNum(p.pct)) continue;
+        const half = Number(row.p90_abs_bp) / 100; // bp → %
+        const px = xPos(p.year);
+        upper.push([px, yPos(p.pct + half)]);
+        lower.push([px, yPos(p.pct - half)]);
+      }
+      if (upper.length >= 2) {
+        let d = `M${upper[0][0].toFixed(1)},${upper[0][1].toFixed(1)}`;
+        for (let i = 1; i < upper.length; i++) {
+          d += `L${upper[i][0].toFixed(1)},${upper[i][1].toFixed(1)}`;
+        }
+        for (let i = lower.length - 1; i >= 0; i--) {
+          d += `L${lower[i][0].toFixed(1)},${lower[i][1].toFixed(1)}`;
+        }
+        d += 'Z';
+        svgEl('path', { d, class: 'moe-band', 'aria-hidden': 'true' }, svg);
+      }
+    }
+  }
+
   const hitTargets = []; // {x,y,r, series, point}
 
   for (const se of series) {
@@ -1423,11 +1572,25 @@ function renderLagBootstrapChart(byMethod, day) {
       view === 'time'
         ? `${tenor}y tenor`
         : (t.seriesKey === 'current' ? 'held BoC (cuts off after rf_asof in time view)' : 'predicted');
+    let moeLine = '';
+    const moeYear = view === 'maturity' ? t.point.year : tenor;
+    const moeKey = t.seriesKey === 'current' ? moeMethod : t.seriesKey;
+    const row = lagMoeRow(moeKey, moeYear);
+    if (row && isNum(row.se_bp) && t.seriesKey !== 'current') {
+      moeLine =
+        `<div class="tip-meta">SE ${Number(row.se_bp).toFixed(3)} bp · P90|e| ${Number(row.p90_abs_bp).toFixed(2)} bp` +
+        (isNum(row.rmse_bp) ? ` · RMSE ${Number(row.rmse_bp).toFixed(2)} bp` : '') +
+        `</div>`;
+    } else if (view === 'time' && row && isNum(row.se_bp) && t.seriesKey === moeMethod) {
+      moeLine =
+        `<div class="tip-meta">MoE ${moeMethod}: SE ${Number(row.se_bp).toFixed(3)} bp · P90|e| ${Number(row.p90_abs_bp).toFixed(2)} bp</div>`;
+    }
     return (
       `<div class="tip-name" style="color:${t.color}">${esc(t.seriesLabel)}</div>` +
       `<div class="tip-meta">${esc(when)} · ${Number(t.point.pct).toFixed(3)}%` +
       (extra ? ` · ${esc(extra)}` : '') +
-      `</div>`
+      `</div>` +
+      moeLine
     );
   }
 
@@ -2090,6 +2253,18 @@ function bindControls() {
       const byMethod = await loadLagBootstrapDay(day);
       if (byMethod) state.lagBootstrap.byMethod = byMethod;
       renderLagBootstrap();
+    });
+  }
+
+  const lagMoeSel = $('#selLagMoeMethod');
+  if (lagMoeSel) {
+    lagMoeSel.addEventListener('change', (e) => {
+      state.lagMoeMethod = e.target.value === 'pca_ridge' ? 'pca_ridge' : 'ridge';
+      renderLagMoePanel();
+      renderLagBootstrapChart(
+        (state.lagBootstrap && state.lagBootstrap.byMethod) || {},
+        state.lagBootstrap && state.lagBootstrap.selectedDay
+      );
     });
   }
 

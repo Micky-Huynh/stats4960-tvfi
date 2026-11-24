@@ -2,11 +2,11 @@
   "as_of": "2026-10-30",
   "rf_source": "boc_zero_coupon_csv+valet_lag_bridge",
   "rf_as_of": "2026-11-04",
-  "rf_effective_as_of": "2026-11-04+valet_2026-11-19",
+  "rf_effective_as_of": "2026-11-04+valet_2026-11-23",
   "premium_policy": "hold_latest_publication",
   "premium_as_of": "2026-10-30",
   "params_as_of": "2026-10-30",
-  "lag_note": "BoC zero-coupon CSV typically refreshes Thursday ~16:30 ET with ~2-week publication lag; hold last published curve as rf_asof. Lag bridge ON: Valet key-rate shift (base 2026-11-04 \u2192 live 2026-11-19; max|\u0394|=11.0 bp).",
+  "lag_note": "BoC zero-coupon CSV typically refreshes Thursday ~16:30 ET with ~2-week publication lag; hold last published curve as rf_asof. Lag bridge ON: Valet key-rate shift (base 2026-11-04 \u2192 live 2026-11-23; max|\u0394|=3.0 bp).",
   "lag_bridge": {
     "method": "valet_keyed_shift_v1",
     "method_note": "Hold BoC zeros at rf_asof; add piecewise-linear key-rate shifts from Valet benchmark \u0394 (live \u2212 on/before rf_asof) at 2/3/5/7/10/30y. Soft-fails to unshifted BoC if Valet unavailable.",
@@ -15,29 +15,29 @@
     "rf_asof": "2026-11-04",
     "publish_lag_days": 16,
     "primary_rf_source": "boc_zero_coupon_csv",
-    "valet_live_asof": "2026-11-19",
+    "valet_live_asof": "2026-11-23",
     "valet_source_url": "https://www.bankofcanada.ca/valet/observations/group/bond_yields_benchmark/json?recent=60",
     "valet_base_asof": "2026-11-04",
     "reason": "lag present and Valet newer than rf_asof",
     "anchor_delta_bp": {
-      "2": 8.000000000000021,
-      "3": 8.000000000000021,
-      "5": 9.99999999999994,
-      "7": 10.000000000000009,
-      "10": 10.999999999999968,
-      "30": 11.000000000000037
+      "2": -1.0000000000000286,
+      "3": -1.999999999999988,
+      "5": -2.0000000000000573,
+      "7": -3.0000000000000164,
+      "10": -2.0000000000000573,
+      "30": -0.9999999999999593
     },
     "shift_bp_sample": {
-      "1": 8.000000000000021,
-      "2": 8.000000000000021,
-      "5": 9.99999999999994,
-      "10": 10.999999999999968,
-      "20": 11.000000000000004,
-      "30": 11.000000000000037
+      "1": -1.0000000000000286,
+      "2": -1.0000000000000286,
+      "5": -2.0000000000000573,
+      "10": -2.0000000000000573,
+      "20": -1.5000000000000082,
+      "30": -0.9999999999999593
     },
-    "mean_abs_shift_bp": 10.5,
-    "max_abs_shift_bp": 11.000000000000037
+    "mean_abs_shift_bp": 1.666666666666681,
+    "max_abs_shift_bp": 3.0000000000000164
   },
-  "xlsx_path": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/illiquid_col_j_boc_rf_2026-11-04_valet_2026-11-19_h_2026-10-30.xlsx",
-  "csv_path": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/illiquid_col_j_boc_rf_2026-11-04_valet_2026-11-19_h_2026-10-30.csv"
+  "xlsx_path": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/illiquid_col_j_boc_rf_2026-11-04_valet_2026-11-23_h_2026-10-30.xlsx",
+  "csv_path": "/Users/mickle/Desktop/STATS4960/TVFI/data/curves/illiquid_col_j_boc_rf_2026-11-04_valet_2026-11-23_h_2026-10-30.csv"
 }

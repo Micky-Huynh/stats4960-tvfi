@@ -101,6 +101,31 @@ Freshness is **Valet business-daily**, not clock-hourly.
 - Peak max|Δ| ridge ≈ 9 bp ≪ 25 bp trigger diagnostic.  
 - Present **ridge** (or pca_ridge) as the witchcraft; do **not** sell the bare PCA-curve track.
 
+### Per-maturity standard error (MoE)
+
+```bash
+python3 -m pipeline.lag_error_report --methods ridge,pca_ridge
+# → data/curves/lag_error_report.json
+# → data/curves/lag_error_report_by_maturity.csv
+```
+
+Walk-forward residuals at each tenor year 1…30 (n≈216 days).  
+**SE** = sample sd of (boot − BoC) / √n — standard error of the **mean** residual at that point.  
+**P90|e|** ≈ 90% conformal half-width (pointwise MoE band). Daily lag-bridge MoE — not clock-hourly.
+
+**Ridge (key tenors, bp):**
+
+| Year | Bias | SD | SE | RMSE | P90\|e\| |
+|-----:|-----:|---:|---:|-----:|-------:|
+| 1 | −0.78 | 2.51 | 0.171 | 2.62 | 4.02 |
+| 2 | −0.07 | 1.39 | 0.095 | 1.39 | 2.38 |
+| 5 | −0.48 | 0.86 | 0.059 | 0.99 | 1.47 |
+| 10 | 0.33 | 1.01 | 0.069 | 1.06 | 1.73 |
+| 20 | −0.08 | 0.92 | 0.063 | 0.92 | 1.56 |
+| 30 | −0.19 | 0.88 | 0.060 | 0.90 | 1.34 |
+
+Mean SE across all 30 tenors ≈ **0.06 bp**. Pooled P90|e| ≈ **1.5 bp**. Front end (1y) is noisiest; belly/long ≈ 0.05–0.07 SE.
+
 ---
 
 ## 6. Caveats

@@ -120,6 +120,15 @@ Artifacts: `data/curves/lag_bootstrap/{ridge,pca,pca_ridge}/` plus multi-sheet
 `lag_bootstrap_curves.xlsx` (predicted zeros + IoA bootstrap for all methods).
 Memo: `docs/memos/lag-bridge-bootstrap.md`.
 
+Per-maturity standard error / MoE (walk-forward residual SE at years 1…30):
+
+```bash
+python3 -m pipeline.lag_error_report --methods ridge,pca_ridge
+```
+
+→ `data/curves/lag_error_report.json` + `lag_error_report_by_maturity.csv`.
+Dashboard **Lag RF rates + MoE** panel loads the JSON (serve from TVFI root) for per-tenor SE / P90|e| and the maturity-view MoE band.
+
 ### Experimental par bootstrap (IoA / CM1)
 
 Optional pedagogy / sensitivity tool — **not** wired into `--rebuilt` and **not** used to fill BoC lag:

@@ -39,7 +39,7 @@ Sam liked the dashboard mock-up direction; keep Overview on implied − pricing 
 |---|---|
 | Defend column H (don’t leave monthly without analysis); θ static | MoM analysis: typical \|ΔH\| ~4–6 bp; RF dominates J between pubs → `hold_latest_publication`; θ = latest Fiera block |
 | Pick **one** daily RF source (active recommendation) | BoC zeros CSV only; Valet benchmarks = freshness overlay, not a second primary |
-| Rewrite trigger: curve-only; no Slope / no PV-liability inside trigger | Primary = weighted \|Δ\| T ≥ **25 bp** (~3.3 fires/year on Fiera monthly history); bucket diagnostic 40 bp |
+| Rewrite trigger: curve-only; no Slope / no PV-liability inside trigger | Primary = weighted \|Δ\| T ≥ **25 bp** (~3.9 fires/year on Fiera monthly history, **PV-basis** weights); bucket diagnostic 40 bp |
 | Drop second “black swan” trigger | Multi-rule OR logic retired; max/twist remain diagnostic only |
 | Primary metrics = VoNB / Net CSM / CaPM (insurer view) | Formula map locked; checkpoint paste in `analyse_results.py` |
 
@@ -155,7 +155,7 @@ Sam constraint: **one** trigger that starts Slope; drop redundant multi-rule / �
 
 Old OR-of-three rule fired **45/84 (≈6.4/yr)** — too chatty for an ops trigger that launches Slope.
 
-**Why weighted T @ 25 bp:** team 2026-11-20 adjustment (prior 35 bp); liability weights emphasize years 16–30; bucket @ 40 bp stays diagnostic. Full-archive fire rate ~3.3/year; 2-year ops sample was sparse (~24 comparisons).
+**Why weighted T @ 25 bp:** team 2026-11-20 threshold (prior 35 bp); post-Nathan **PV-basis** weights put 55% of T on years 1–10 (1–5 High 30% … 26–30 Low 5%); bucket @ 40 bp stays diagnostic. Full-archive fire rate ~3.9/year under PV weights; 2-year ops sample was sparse (~24 comparisons).
 
 ### 3.3 Caveats (carry into final report)
 

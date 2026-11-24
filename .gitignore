@@ -45,3 +45,7 @@ exports/
 
 # Fitted lag-bridge models (regenerate via pipeline.lag_bridge_mlr --train)
 data/models/
+
+# Cloudflare dashboard bundle (built by scripts/build_dashboard_site.sh)
+dist/
+.wrangler/

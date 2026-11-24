@@ -1,0 +1,12 @@
+// Cloudflare Worker (static assets only) for the Group 5 monitoring dashboard.
+// Build:  bash scripts/build_dashboard_site.sh
+// Deploy: npx wrangler deploy
+{
+  "name": "tvfi-group5-dashboard",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist/dashboard-site",
+    "not_found_handling": "404-page"
+  },
+  "workers_dev": true
+}

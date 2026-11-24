@@ -165,12 +165,19 @@
     <section class="lagboot-section" id="lagBootPanel">
       <div class="card-head lagboot-head">
         <div>
-          <h2>Lag-remedy prediction curves</h2>
-          <p class="desc" id="lagBootDesc">Ridge / PCA / PCA+Ridge → IoA bootstrap (experimental; not the --rebuilt default).</p>
+          <h2>Lag RF rates + MoE</h2>
+          <p class="desc" id="lagBootDesc">Valet-timed daily predict → IoA bootstrap (not clock-hourly). Walk-forward SE / P90|e| MoE per maturity. Experimental — not the --rebuilt default.</p>
         </div>
         <div class="lagboot-controls">
           <span class="chip" id="lagBootChip">EXPERIMENTAL</span>
           <button class="btn btn-sm" id="btnLagBootXlsx" type="button">⤓ Export Excel</button>
+          <label class="select">
+            <span>MoE method</span>
+            <select id="selLagMoeMethod">
+              <option value="ridge" selected>Ridge</option>
+              <option value="pca_ridge">PCA+Ridge</option>
+            </select>
+          </label>
           <label class="select">
             <span>View</span>
             <select id="selLagBootView">
@@ -226,11 +233,36 @@
           <p class="desc" id="lagBootMetaNote">Serve from project root to load <span class="mono">data/curves/lag_bootstrap/</span>.</p>
         </article>
       </div>
+      <article class="card lagboot-moe-card" id="lagMoeCard">
+        <div class="card-head">
+          <div>
+            <h2>Walk-forward MoE by maturity</h2>
+            <p class="desc" id="lagMoeDesc">SE = sd(residuals)/√n at each tenor vs later BoC. P90|e| ≈ pointwise 90% MoE band. Daily lag-bridge — not clock-hourly.</p>
+          </div>
+          <span class="chip" id="lagMoeChip">MoE</span>
+        </div>
+        <dl class="kv" id="lagMoeSummary"></dl>
+        <div class="table-scroll">
+          <table class="mat compact" id="lagMoeTable">
+            <thead>
+              <tr>
+                <th>Year</th>
+                <th>Bias</th>
+                <th>SD</th>
+                <th>SE</th>
+                <th>RMSE</th>
+                <th>P90|e|</th>
+              </tr>
+            </thead>
+            <tbody id="lagMoeBody"></tbody>
+          </table>
+        </div>
+      </article>
       <article class="card lagboot-chart-card">
         <div class="card-head">
           <div>
-            <h2 id="lagBootChartTitle">Known BoC vs lag predictions</h2>
-            <p class="desc" id="lagBootChartDesc">Last known BoC points through rf_asof; Ridge / PCA / PCA+Ridge fan out past the cutoff. Click legend to toggle · hover for curve name.</p>
+            <h2 id="lagBootChartTitle">Known BoC vs lag predictions (±P90 MoE)</h2>
+            <p class="desc" id="lagBootChartDesc">Last known BoC through rf_asof; predictions fan out with walk-forward P90|e| band on the selected MoE method. Click legend to toggle · hover for curve + SE.</p>
           </div>
           <div class="legend lagboot-legend" id="lagBootLegend"></div>
         </div>

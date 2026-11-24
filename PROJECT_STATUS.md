@@ -2,7 +2,7 @@
 
 **Course:** STATS 4960 · Group 5 × Thames Valley Financial Inc.  
 **Repo:** [Micky-Huynh/stats4960-tvfi](https://github.com/Micky-Huynh/stats4960-tvfi)  
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-24
 
 **Goal (one line):** Daily Canadian risk-free + Fiera construction → Slope annual forwards (column J) → cheap no-Slope trigger → insurer VoNB / Net CSM / CaPM → dashboard via `monitor_snapshot.json`.
 
@@ -20,12 +20,13 @@
 - Fiera history → curve metrics → trigger → `monitor_snapshot.json`
 - Writes canonical snapshot to `data/monitor/` and copies into the dashboard folder
 - **Column J builder** (`pipeline/curve_builder.py`): `--rf fiera|boc`; Fiera fixture validates vs published J (~0 bp error). Outputs under `data/curves/`
-- **Rebuilt snapshot (Wave 4):** `python3 -m pipeline.build_monitor_snapshot --rebuilt` **auto-prefers BoC RF** when `data/risk_free/` has a snapshot (`--rf auto|boc|fiera`). Latest: `Fiera-20261030-R01`, **`NO_TRIGGER`**, `rf_source=boc_zero_coupon_csv`, mean |Δ| ≈ **16.9 bp**
+- **Rebuilt snapshot (Wave 4):** `python3 -m pipeline.build_monitor_snapshot --rebuilt` **auto-prefers BoC RF** when `data/risk_free/` has a snapshot (`--rf auto|boc|fiera`). Latest (2026-11-24): `Fiera-20261030-R01`, **`TRIGGERED`**, `rf_source=boc_zero_coupon_csv+valet_lag_bridge`, weighted T ≈ **28.2 bp** (≥ 25)
 - **Decision log:** each build writes `data/decisions/YYYY-MM-DD.json`; snapshot carries `decision` + `profitability` hooks (`profitability.status=not_run` until Slope exports exist)
-- **Calibrated trigger** (`pipeline/trigger.py`): primary rule liability-weighted |Δ| **T ≥ 25 bp** (~3.3 fires/year over years 1–30; team 2026-11-20). Diagnostics: max bucket mean |Δ| **40 bp**, |2s10s| 40 bp, signed S (no threshold). Bucket does **not** fire alone. Back-test: `python3 -m pipeline.backtest_trigger`
+- **Calibrated trigger** (`pipeline/trigger.py`): primary rule liability-weighted |Δ| **T ≥ 25 bp** (~**3.9** fires/year over years 1–30; **PV-basis** weights post-Nathan / Ethan 2026-11-20). Diagnostics: max bucket mean |Δ| **40 bp**, |2s10s| 40 bp, signed S (no threshold). Bucket does **not** fire alone. Back-test: `python3 -m pipeline.backtest_trigger`
 
 ### Dashboard
 - Static prototype: `Dashboard UI/Group5_Monitoring_Dashboard/`
+- **Hosted on Cloudflare Workers** (static assets): https://tvfi-group5-dashboard.mickyhuynh14.workers.dev — rebuild + redeploy with `bash scripts/build_dashboard_site.sh && npx wrangler deploy` (bundles the UI plus only the data files it fetches; public URL)
 - Overview KPIs use **implied − pricing** (aligned with pipeline trigger)
 - Canada-par series kept as labeled **market context** only
 
@@ -43,7 +44,7 @@
 | `docs/memos/column-h-liquidity-premium.md` | **`hold_latest_publication`** for col H |
 | `docs/memos/daily-risk-free-source.md` | **BoC zero-coupon CSV** as primary RF source (own ~2-week lag) |
 | `docs/memos/boc-rf-lag-freshness.md` | BoC URL, lag labeling, intake commands |
-| `docs/memos/trigger-calibration.md` | Single primary: weighted \|Δ\| T ≥ **25 bp** (years 1–30); bucket diagnostic 40 bp |
+| `docs/memos/trigger-calibration.md` | Single primary: weighted \|Δ\| T ≥ **25 bp** (years 1–30, **PV weights**); bucket diagnostic 40 bp |
 | `docs/memos/profitability-formula-map.md` | VoNB % / Net CSM % / CaPM formulas (+ local `pipeline/profitability_formulas.py`) |
 
 ### Sam / TVFI feedback absorbed
@@ -61,7 +62,7 @@ Team / industry partner should explicitly review and sign off on:
 2. **Daily RF source** — Is BoC zero-coupon CSV the right primary despite ~2-week lag? (Valet benchmarks only as freshness overlay.)  
    → `docs/memos/daily-risk-free-source.md` · `docs/memos/boc-rf-lag-freshness.md`
 
-3. **Trigger threshold** — Team set weighted |Δ| T ≥ **25 bp** + bucket diagnostic **40 bp** (2-year sample ~24 comparisons; full archive ~3.3 fires/year at 25 bp). Confirm ops-reasonable with TVFI.  
+3. **Trigger threshold** — Team set weighted |Δ| T ≥ **25 bp** + bucket diagnostic **40 bp** (2-year sample ~24 comparisons; full archive ~**3.9** fires/year at 25 bp under **PV-basis** weights). Confirm ops-reasonable with TVFI.  
    → `docs/memos/trigger-calibration.md` + `python3 -m pipeline.backtest_trigger`
 
 4. **Extrapolation past 30y** — When BoC zeros feed the builder, confirm how we extend to Slope durations 1–100 (builder currently mirrors Fiera ultimate behavior).
@@ -106,7 +107,7 @@ Three **separate** tracks over a user-chosen lag interval (Ridge / PCA-curve / P
 - Team sync: ~1 bp prediction error **accepted** vs 25 bp trigger (Granola post-Nathan)
 
 ### Post-Nathan actions (from team sync)
-- **Ethan** → finalize PV-basis liability weights; **Micky** implements; **Allison** regenerates report (fix formula as equation)
+- **PV-basis weights** — **Done** in `pipeline/metrics.py` (1–5 30% … 26–30 5%); back-test refreshed (~3.9/yr). **Allison** regenerates report (trigger formula as equation)
 - **Sawyer** → four profitability scenarios to Nathan Mon 23 Nov
 - Deadlines: report **30 Nov noon**; presentation **1 Dec**
 
@@ -124,7 +125,7 @@ Ready to send: `docs/partner-review/2026-11-20/`
 
 - Sign-off checklist (H / RF / trigger 25+40) in that folder’s `README.md`
 - Memos copied under `memos/`
-- Back-test at 25 bp: `artifacts/backtest_trigger_25bp.txt` (23/84 ≈ 3.29/yr)
+- Back-test at 25 bp: `artifacts/backtest_trigger_25bp.txt` (27/84 ≈ **3.86**/yr under PV weights)
 - Slope-ready baseline + implied workbooks under `slope_inputs/` (unique names; Fiera-validated J ≈ 0 bp)
 - Latest rebuilt snapshot in pack: **TRIGGERED** (T ≈ 25.24 bp)
 

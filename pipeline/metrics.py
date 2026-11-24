@@ -4,15 +4,17 @@ from __future__ import annotations
 
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
-# Liability-weight table (teammate): (first_year, last_year, weight_per_year).
-# Sums to 1.0 over years 1..30. See docs/memos/trigger-calibration.md.
+# Liability-weight table — present-value / short-end basis (post-Nathan / Ethan, 2026-11-20).
+# (first_year, last_year, weight_per_year). Bucket totals: 1–5 30%, 6–10 25%, 11–15 20%,
+# 16–20 15%, 21–25 5%, 26–30 5%. Sums to 1.0 over years 1..30.
+# See docs/memos/trigger-calibration.md.
 WEIGHT_BUCKETS: List[Tuple[int, int, float]] = [
-    (1, 5, 0.01),
-    (6, 10, 0.02),
-    (11, 15, 0.03),
-    (16, 20, 0.05),
-    (21, 25, 0.05),
-    (26, 30, 0.04),
+    (1, 5, 0.06),
+    (6, 10, 0.05),
+    (11, 15, 0.04),
+    (16, 20, 0.03),
+    (21, 25, 0.01),
+    (26, 30, 0.01),
 ]
 
 TRIGGER_YEARS: List[int] = list(range(1, 31))

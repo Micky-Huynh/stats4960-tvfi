@@ -24,7 +24,7 @@
 
 ## Slide 4 — Trigger calibration
 
-- Primary: weighted \|Δ\| T ≥ **25 bp** (~3.3 fires/year; 23/84 months); bucket diagnostic 40 bp.
+- Primary: weighted \|Δ\| T ≥ **25 bp** (~3.9 fires/year; 27/84 months under **PV-basis** weights); bucket diagnostic 40 bp.
 - Old multi-rule OR ≈6.4/yr — too chatty.
 - Diagnostics only: max \|Δ\|, 2s10s twist.
 - Caveat: monthly Fiera history; re-calibrate on daily BoC path.

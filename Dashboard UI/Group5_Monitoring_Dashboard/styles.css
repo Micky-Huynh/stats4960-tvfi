@@ -169,6 +169,32 @@ h1 { font-size: 26px; letter-spacing: -.01em; }
   gap: 10px;
   flex-wrap: wrap;
 }
+.lagboot-moe-card {
+  margin-top: 12px;
+}
+.lagboot-moe-card .kv {
+  margin: 8px 0 10px;
+}
+.lagboot-moe-card .table-scroll {
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+.lagboot-moe-card table.mat {
+  margin: 0;
+  width: 100%;
+}
+.lagboot-moe-card table.mat th,
+.lagboot-moe-card table.mat td {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.chart .moe-band {
+  fill: rgba(44, 122, 113, 0.14);
+  stroke: none;
+}
 .lagboot-chart-card {
   margin-top: 12px;
 }
